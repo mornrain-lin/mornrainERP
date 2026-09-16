@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Windows 未展开的环境变量（如 %SystemDrive%）被某些程序当成相对路径误建的目录，禁止入库
+/public/%SystemDrive%/
+/public/_junk_*/
