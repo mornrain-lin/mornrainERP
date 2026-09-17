@@ -5,7 +5,7 @@ namespace App\Support;
 use App\Models\Order;
 
 /**
- * 利润核算核心 —— moringrainERP 的差异化能力
+ * 利润核算核心 —— mornrainERP 的差异化能力
  *
  * 营收(CNY) = (商品金额 + 运费收入 - 平台补贴 - 平台佣金 - 支付手续费 - 退款) × 汇率
  * 成本(CNY) = 商品采购成本 + 物流成本 + 广告分摊 + 其他成本

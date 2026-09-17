@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', '概览') · moringrainERP</title>
+    <title>@yield('title', '概览') · mornrainERP</title>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
@@ -13,7 +13,7 @@
         <div class="brand">
             <div class="brand-logo">MR</div>
             <div class="brand-text">
-                <span class="brand-name">moringrainERP</span>
+                <span class="brand-name">mornrainERP</span>
                 <span class="brand-sub">轻量级跨境 ERP</span>
             </div>
         </div>
@@ -50,7 +50,7 @@
 
         <div class="sidebar-foot">
             MVP v0.1 · 订单管理<br>
-            © {{ date('Y') }} moringrain
+            © {{ date('Y') }} mornrainERP
         </div>
     </aside>
 

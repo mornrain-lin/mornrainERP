@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "mornrain/moringrainerp",
+    "name": "mornrain/mornrainerp",
     "type": "project",
-    "description": "moringrainERP — 轻量级跨境电商 ERP：多平台订单归集、物流发货闭环与自动利润核算（订单管理 MVP）。",
+    "description": "mornrainERP — 轻量级跨境电商 ERP：多平台订单归集、物流发货闭环与自动利润核算（订单管理 MVP）。",
     "keywords": ["laravel", "erp", "cross-border", "ecommerce", "order-management", "profit-accounting"],
     "license": "MIT",
     "require": {

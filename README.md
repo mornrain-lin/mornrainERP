@@ -1,4 +1,4 @@
-# moringrainERP
+# mornrainERP
 
 > 轻量级跨境电商 ERP · 订单管理 MVP
 > 对标 [moringrain.com](https://www.moringrain.com/) 的产品定位：**让每一单利润算得清**
@@ -53,7 +53,7 @@
 ## 三、目录结构
 
 ```
-moringrainerp/
+mornrainerp/
 ├── app/
 │   ├── Enums/
 │   │   ├── OrderStatus.php          # 订单状态机（含流转规则、UI 配色）
@@ -170,7 +170,7 @@ Composer  ：C:\Users\linga\.workbuddy\binaries\composer\composer.phar
 启动：
 
 ```bash
-cd moringrainerp
+cd mornrainerp
 
 # 首次：建库 + 迁移 + 灌演示数据（180 张订单 + 355 条明细 + 70 条物流）
 php artisan migrate --force
@@ -195,7 +195,7 @@ php artisan serve --host=127.0.0.1 --port=8000
 # 1) 切 MySQL（.env）
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
-DB_DATABASE=moringrainerp
+DB_DATABASE=mornrainerp
 DB_USERNAME=xxx
 DB_PASSWORD=xxx
 

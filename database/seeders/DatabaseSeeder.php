@@ -7,7 +7,7 @@ use Illuminate\Database\Seeder;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * moringrainERP 演示数据
+     * mornrainERP 演示数据
      */
     public function run(): void
     {

@@ -444,7 +444,7 @@ class OrderController extends Controller
             ->betweenDates($filters['date_from'] ?? null, $filters['date_to'] ?? null)
             ->orderByDesc('created_at');
 
-        $filename = 'moringrainERP-orders-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'mornrainERP-orders-' . now()->format('Ymd-His') . '.csv';
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
