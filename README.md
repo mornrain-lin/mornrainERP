@@ -199,10 +199,10 @@ DB_DATABASE=mornrainerp
 DB_USERNAME=xxx
 DB_PASSWORD=xxx
 
-# 2) 缓存 / 会话 / 队列切 Redis
+# 2) 缓存 / 会话切 Redis
+#    任务为同步执行（QUEUE_CONNECTION=sync），当前未启用异步队列
 CACHE_STORE=redis
 SESSION_DRIVER=redis
-QUEUE_CONNECTION=redis
 
 # 3) 上线
 composer install --no-dev --optimize-autoloader
