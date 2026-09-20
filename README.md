@@ -60,7 +60,7 @@ mornrainerp/
 │   │   └── ShipmentStatus.php       # 物流状态
 │   ├── Http/Controllers/
 │   │   ├── DashboardController.php  # 经营概览
-│   │   ├── OrderController.php      # 订单 CRUD / 状态流转 / 发货 / 导入导出 / 模拟同步
+│   │   ├── OrderController.php      # 订单 CRUD / 状态流转 / 发货 / 导入导出
 │   │   ├── ShopController.php       # 店铺管理
 │   │   ├── ProductController.php    # 商品 SKU 管理
 │   │   └── ReportController.php     # 利润报表
@@ -137,7 +137,6 @@ orders (订单) ──┬── n order_items (明细) ── n→1 products (SK
 - **批量发货**：粘贴「订单号,运单号」多行，一次处理，失败行单独回报
 - **CSV 导入**：同一订单号多行自动合并为一张订单 + 多条明细；平台按 code 匹配，店铺不存在自动创建
 - **CSV 导出**：带 BOM 中文表头，Excel 直接打开不乱码，含利润核算结果列
-- **模拟平台同步**：一键拉取 N 笔随机订单，演示 API 拉单链路（真实环境替换为各平台 OpenAPI）
 
 ### 3. 订单详情 `/orders/{id}`
 - 订单信息、商品明细、物流记录三段式布局
@@ -219,7 +218,7 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 
 | 优先级 | 模块 | 说明 |
 |---|---|---|
-| P0 | 平台 OpenAPI 对接 | 替换「模拟同步」，接 Shopee / Lazada / TikTok Shop 官方接口自动拉单 |
+| P0 | 平台 OpenAPI 对接 | 接 Shopee / Lazada / TikTok Shop 官方接口自动拉单 |
 | P0 | 登录与权限 | 多坐席、角色（老板 / 运营 / 客服）、操作审计 |
 | P1 | 库存管理 | SKU 库存、多仓、库存同步与低库存预警 |
 | P1 | 采购管理 | 补货建议、采购单、供应商 |
@@ -237,5 +236,4 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 - 单条发货 / 批量发货：写入物流记录并推进状态
 - CSV 导入：2 行合并为 1 单 + 2 明细，店铺自动创建
 - CSV 导出：28KB，中文表头无乱码，利润列计算正确
-- 模拟同步：订单数 180 → 185
 - 利润核算抽样：`revenue=350.57 / cost=126.80 / profit=223.77 / margin=63.83%`

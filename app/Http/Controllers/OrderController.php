@@ -9,7 +9,6 @@ use App\Models\Platform;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\Shop;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -473,104 +472,6 @@ class OrderController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /**
-     * 模拟平台同步：按现有店铺/SKU 随机生成订单，
-     * 用于演示「平台订单自动归集」链路（真实环境替换为各平台 OpenAPI 拉单）
-     */
-    public function simulate(Request $request)
-    {
-        $count = (int) $request->input('count', 8);
-        $count = max(1, min(50, $count));
-
-        $shops = Shop::with('platform')->where('is_active', true)->get();
-        $products = Product::where('is_active', true)->get();
-        if ($shops->isEmpty() || $products->isEmpty()) {
-            return back()->with('err', '请先准备店铺与商品数据');
-        }
-
-        $currencies = ['MYR' => 0.65, 'THB' => 0.20, 'SGD' => 5.35, 'USD' => 7.20, 'IDR' => 0.00045, 'PHP' => 0.128];
-        $statuses = [OrderStatus::Pending, OrderStatus::Paid, OrderStatus::Paid, OrderStatus::Shipped, OrderStatus::Completed, OrderStatus::Refunding];
-        $carriers = Shipment::CARRIERS;
-
-        DB::transaction(function () use ($count, $shops, $products, $currencies, $statuses, $carriers) {
-            for ($i = 0; $i < $count; $i++) {
-                $shop = $shops->random();
-                $platform = $shop->platform;
-                $cur = array_rand($currencies);
-                $rate = $currencies[$cur];
-                $status = $statuses[array_rand($statuses)];
-
-                $goods = 0.0;
-                $lineItems = [];
-                $n = random_int(1, 3);
-                for ($j = 0; $j < $n; $j++) {
-                    $product = $products->random();
-                    $qty = random_int(1, 3);
-                    $price = round($product->cost_price * $rate > 0 ? ($product->cost_price * random_int(250, 420) / 100) / $rate : 20, 2);
-                    $lineItems[] = compact('product', 'qty', 'price');
-                    $goods += $price * $qty;
-                }
-                $goods = round($goods, 2);
-                $shippingIncome = round(random_int(0, 30) / 10, 2);
-                $commission = round($goods * $platform->commission_rate / 100, 2);
-                $paymentFee = round($goods * $platform->payment_fee_rate / 100, 2);
-                $shippingCost = round(random_int(80, 320) / 10, 2);
-                $adCost = round(random_int(0, 150) / 10, 2);
-                $isRefund = in_array($status, [OrderStatus::Refunding], true);
-
-                $order = Order::create([
-                    'order_no' => strtoupper($platform->code) . '-' . now()->format('ymd') . '-' . str_pad((string) random_int(1, 999999), 6, '0', STR_PAD_LEFT),
-                    'platform_id' => $platform->id,
-                    'shop_id' => $shop->id,
-                    'buyer_name' => $this->randomBuyer(),
-                    'buyer_country' => $shop->region,
-                    'currency' => $cur,
-                    'exchange_rate' => $rate,
-                    'goods_amount' => $goods,
-                    'shipping_income' => $shippingIncome,
-                    'discount_amount' => 0,
-                    'platform_commission' => $commission,
-                    'payment_fee' => $paymentFee,
-                    'refund_amount' => $isRefund ? $goods : 0,
-                    'shipping_cost' => $shippingCost,
-                    'ad_cost' => $adCost,
-                    'other_cost' => 0,
-                    'status' => $status,
-                    'source' => 'api',
-                    'paid_at' => $status !== OrderStatus::Pending ? now()->subHours(random_int(1, 72)) : null,
-                    'shipped_at' => in_array($status, [OrderStatus::Shipped, OrderStatus::Completed], true) ? now()->subHours(random_int(1, 40)) : null,
-                    'completed_at' => $status === OrderStatus::Completed ? now()->subHours(random_int(1, 10)) : null,
-                    'created_at' => now()->subHours(random_int(0, 24 * 14)),
-                ]);
-
-                foreach ($lineItems as $li) {
-                    $order->items()->create([
-                        'product_id' => $li['product']->id,
-                        'sku' => $li['product']->sku,
-                        'product_name' => $li['product']->name,
-                        'quantity' => $li['qty'],
-                        'unit_price' => $li['price'],
-                        'unit_cost' => $li['product']->cost_price,
-                    ]);
-                }
-
-                if (in_array($status, [OrderStatus::Shipped, OrderStatus::Completed], true)) {
-                    Shipment::create([
-                        'order_id' => $order->id,
-                        'carrier' => $carriers[array_rand($carriers)],
-                        'tracking_no' => 'MR' . strtoupper(bin2hex(random_bytes(5))),
-                        'status' => $status === OrderStatus::Completed ? ShipmentStatus::Delivered : ShipmentStatus::InTransit,
-                        'cost' => $shippingCost,
-                        'shipped_at' => now()->subHours(random_int(1, 40)),
-                        'delivered_at' => $status === OrderStatus::Completed ? now()->subHours(random_int(1, 8)) : null,
-                    ]);
-                }
-            }
-        });
-
-        return back()->with('ok', "模拟同步完成：已从平台拉取 {$count} 笔新订单");
-    }
-
     // ---------------- helpers ----------------
 
     private function validateOrder(Request $request): array
@@ -601,14 +502,6 @@ class OrderController extends Controller
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.unit_cost' => 'nullable|numeric|min:0',
         ]);
-    }
-
-    private function randomBuyer(): string
-    {
-        $surnames = ['Ahmad', 'Siti', 'Nguyen', 'Somchai', 'Putra', 'Maria', 'Tan', 'Chen', 'Rahman', 'Lina'];
-        $names = ['Ali', 'Budi', 'Mai', 'Ken', 'Joy', 'Ayu', 'Rio', 'Dewi', 'Hakim', 'Nadia'];
-
-        return $surnames[array_rand($surnames)] . ' ' . $names[array_rand($names)];
     }
 
     private function sampleCsv(): string

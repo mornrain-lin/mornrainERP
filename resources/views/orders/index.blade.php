@@ -146,7 +146,7 @@
                                 <div class="empty">
                                     <div class="big">▤</div>
                                     没有符合条件的订单<br>
-                                    <span style="font-size:12px">试试调整筛选条件，或点右上角「新建订单」/ 运行「模拟平台同步」</span>
+                                    <span style="font-size:12px">试试调整筛选条件，或点右上角「新建订单」</span>
                                 </div>
                             </td>
                         </tr>

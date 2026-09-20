@@ -4,11 +4,6 @@
 @section('desc', '订单、营收与毛利的实时快照 — ' . now()->format('Y年m月d日 H:i'))
 
 @section('actions')
-    <form method="post" action="{{ route('orders.simulate') }}" style="display:inline">
-        @csrf
-        <input type="hidden" name="count" value="8">
-        <button class="btn" type="submit">⟳ 模拟平台同步</button>
-    </form>
     <a class="btn btn-primary" href="{{ route('orders.create') }}">＋ 新建订单</a>
 @endsection
 
@@ -158,7 +153,7 @@
                                 <td class="num">{{ $p['margin'] }}%</td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="empty">还没有订单，点右上角「模拟平台同步」试试</td></tr>
+                            <tr><td colspan="4" class="empty">还没有订单，点右上角「＋ 新建订单」试试</td></tr>
                         @endforelse
                         </tbody>
                     </table>

@@ -25,7 +25,6 @@ Route::prefix('orders')->name('orders.')->group(function () {
     Route::post('/import', [OrderController::class, 'import'])->name('import');
     Route::get('/export', [OrderController::class, 'export'])->name('export');
     Route::post('/batch-ship', [OrderController::class, 'batchShip'])->name('batch-ship');
-    Route::post('/simulate', [OrderController::class, 'simulate'])->name('simulate');
     Route::get('/{order}', [OrderController::class, 'show'])->name('show');
     Route::get('/{order}/edit', [OrderController::class, 'edit'])->name('edit');
     Route::put('/{order}', [OrderController::class, 'update'])->name('update');
