@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Services\Audit\AuditService;
 use App\Services\Inventory\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,12 @@ class InventoryController extends Controller
             $data['remark'] ?? null,
             null,
             auth()->id(),
+        );
+
+        app(AuditService::class)->log(
+            'inventory.adjusted',
+            "{$product->sku} 库存调整（{$data['type']} {$quantity}），当前 {$product->fresh()->stock} 件",
+            $product
         );
 
         return back()->with('ok', "{$product->sku} 库存已调整，当前 {$product->fresh()->stock} 件");

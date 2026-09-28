@@ -3,7 +3,35 @@
 @section('title', '采购单 ' . $purchaseOrder->po_no)
 @section('desc', ($purchaseOrder->supplier?->name ?? '—') . ' · ' . $purchaseOrder->status->label())
 
+@php
+    $st = $purchaseOrder->status;
+    $editable = in_array($st, [\App\Enums\POStatus::Draft, \App\Enums\POStatus::Ordered], true);
+@endphp
+
 @section('actions')
+    @if ($editable)
+        <a class="btn" href="{{ route('purchases.edit', $purchaseOrder) }}">编辑</a>
+    @endif
+    @if ($st === \App\Enums\POStatus::Draft)
+        <form method="post" action="{{ route('purchases.place', $purchaseOrder) }}" style="display:inline">
+            @csrf
+            <button class="btn" type="submit">标记已下单</button>
+        </form>
+    @endif
+    @if ($editable)
+        <form method="post" action="{{ route('purchases.cancel', $purchaseOrder) }}" style="display:inline"
+              onsubmit="return confirm('确认取消采购单 {{ $purchaseOrder->po_no }}？')">
+            @csrf
+            <button class="btn btn-danger" type="submit">取消</button>
+        </form>
+    @endif
+    @if (in_array($st, [\App\Enums\POStatus::Draft, \App\Enums\POStatus::Cancelled], true))
+        <form method="post" action="{{ route('purchases.destroy', $purchaseOrder) }}" style="display:inline"
+              onsubmit="return confirm('确认删除采购单 {{ $purchaseOrder->po_no }}？该操作不可恢复。')">
+            @csrf @method('DELETE')
+            <button class="btn btn-danger" type="submit">删除</button>
+        </form>
+    @endif
     <a class="btn" href="{{ route('purchases.index') }}">← 返回列表</a>
 @endsection
 

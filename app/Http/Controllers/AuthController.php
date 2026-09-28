@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Audit\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +39,8 @@ class AuthController extends Controller
 
         // 统一错误文案，避免暴露账号是否存在
         if (! $user || ! $user->is_active || ! Hash::check($data['password'], $user->password)) {
+            app(AuditService::class)->log('auth.login_failed', "登录失败：{$data['email']}");
+
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => '邮箱或密码不正确，或账号已停用']);
@@ -48,12 +51,16 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        app(AuditService::class)->log('auth.login', "登录成功（{$user->email}）", null, $user->id);
+
         return redirect()->intended(route('dashboard'))
             ->with('ok', '欢迎回来，' . $user->name);
     }
 
     public function logout(Request $request): RedirectResponse
     {
+        app(AuditService::class)->log('auth.logout', '退出登录', null, auth()->id());
+
         Auth::logout();
 
         $request->session()->invalidate();
@@ -80,6 +87,8 @@ class AuthController extends Controller
         ]);
 
         $request->user()->forceFill(['password' => User::hashPassword($data['password'])])->save();
+
+        app(AuditService::class)->log('auth.password', '修改自己的登录密码');
 
         return redirect()->route('dashboard')->with('ok', '密码已更新，下次登录请使用新密码');
     }

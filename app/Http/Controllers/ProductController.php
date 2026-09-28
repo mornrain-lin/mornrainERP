@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Services\Audit\AuditService;
 use App\Services\Inventory\StockService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,8 @@ class ProductController extends Controller
             $stock->adjust($product, $initialStock, StockMovement::TYPE_IN, '新建 SKU 初始库存', null, auth()->id());
         }
 
+        app(AuditService::class)->log('product.created', "新增商品 SKU {$data['sku']}");
+
         return redirect()->route('products.index')->with('ok', '商品已创建');
     }
 
@@ -73,6 +76,8 @@ class ProductController extends Controller
             $stock->adjust($product, $newStock - $currentStock, StockMovement::TYPE_ADJUST, '商品资料编辑', null, auth()->id());
         }
 
+        app(AuditService::class)->log('product.updated', "修改商品 SKU {$product->sku}", $product);
+
         return redirect()->route('products.index')->with('ok', '商品已更新');
     }
 
@@ -82,6 +87,8 @@ class ProductController extends Controller
             return back()->with('err', '该 SKU 已产生订单明细，无法删除（可先停用）');
         }
         $product->delete();
+
+        app(AuditService::class)->log('product.deleted', "删除商品 SKU {$product->sku}");
 
         return redirect()->route('products.index')->with('ok', '商品已删除');
     }

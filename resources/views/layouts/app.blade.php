@@ -40,15 +40,20 @@
                     <span class="ico">◈</span> 利润报表
                 </a>
             </div>
-            <div class="nav-group">
-                <div class="nav-title">基础资料</div>
-                <a class="nav-item {{ request()->routeIs('shops.*') ? 'active' : '' }}" href="{{ route('shops.index') }}">
-                    <span class="ico">⛬</span> 店铺管理
-                </a>
-                <a class="nav-item {{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}">
-                    <span class="ico">▣</span> 商品 / SKU
-                </a>
-            </div>
+            @if (auth()->user()?->isAdmin())
+                <div class="nav-group">
+                    <div class="nav-title">基础资料</div>
+                    <a class="nav-item {{ request()->routeIs('shops.*') ? 'active' : '' }}" href="{{ route('shops.index') }}">
+                        <span class="ico">⛬</span> 店铺管理
+                    </a>
+                    <a class="nav-item {{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}">
+                        <span class="ico">▣</span> 商品 / SKU
+                    </a>
+                    <a class="nav-item {{ request()->routeIs('suppliers.*') ? 'active' : '' }}" href="{{ route('suppliers.index') }}">
+                        <span class="ico">🏭</span> 供应商
+                    </a>
+                </div>
+            @endif
             @if (auth()->user()?->isAdmin())
                 <div class="nav-group">
                     <div class="nav-title">系统</div>
@@ -61,12 +66,15 @@
                     <a class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
                         <span class="ico">☺</span> 账号管理
                     </a>
+                    <a class="nav-item {{ request()->routeIs('audit.*') ? 'active' : '' }}" href="{{ route('audit.index') }}">
+                        <span class="ico">🔍</span> 操作审计
+                    </a>
                 </div>
             @endif
         </nav>
 
         <div class="sidebar-foot">
-            v0.4 · 订单 · 利润 · 库存<br>
+            v0.6 · 订单 · 利润 · 库存 · 采购<br>
             登录：{{ auth()->user()?->email }}<br>
             © {{ date('Y') }} mornrainERP
         </div>

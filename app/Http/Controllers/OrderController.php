@@ -9,6 +9,7 @@ use App\Models\Platform;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\Shop;
+use App\Services\Audit\AuditService;
 use App\Services\Inventory\StockService;
 use App\Services\Quota\QuotaExceededException;
 use App\Services\Quota\QuotaService;
@@ -125,6 +126,8 @@ class OrderController extends Controller
             return $order;
         });
 
+        app(AuditService::class)->log('order.created', "创建订单 {$order->order_no}", $order);
+
         return redirect()->route('orders.show', $order)
             ->with('ok', "订单 {$order->order_no} 已创建");
     }
@@ -175,12 +178,16 @@ class OrderController extends Controller
 
         $order->update($data);
 
+        app(AuditService::class)->log('order.updated', "修改订单 {$order->order_no}", $order);
+
         return redirect()->route('orders.show', $order)->with('ok', '订单已更新');
     }
 
     public function destroy(Order $order)
     {
         $order->delete();
+
+        app(AuditService::class)->log('order.deleted', "删除订单 {$order->order_no}");
 
         return redirect()->route('orders.index')->with('ok', "订单 {$order->order_no} 已删除");
     }
@@ -227,6 +234,12 @@ class OrderController extends Controller
             }
         });
 
+        app(AuditService::class)->log(
+            'order.status',
+            "订单 {$order->order_no} 状态流转到「{$target->label()}」",
+            $order
+        );
+
         return back()->with('ok', "订单状态已更新为「{$target->label()}」");
     }
 
@@ -263,6 +276,8 @@ class OrderController extends Controller
             // 发货即出库
             $stock->deductForOrder($order);
         });
+
+        app(AuditService::class)->log('order.shipped', "订单 {$order->order_no} 发货，库存已扣减", $order);
 
         return back()->with('ok', "订单 {$order->order_no} 已发货，库存已扣减");
     }
@@ -320,6 +335,10 @@ class OrderController extends Controller
         $msg = "批量发货完成：成功 {$ok} 单";
         if ($fail) {
             $msg .= '，失败 ' . count($fail) . ' 单（' . implode('；', array_slice($fail, 0, 3)) . '）';
+        }
+
+        if ($ok) {
+            app(AuditService::class)->log('order.shipped', "批量发货：{$msg}");
         }
 
         return back()->with($ok ? 'ok' : 'err', $msg);
@@ -465,6 +484,10 @@ class OrderController extends Controller
         $msg = "导入完成：新增 {$created} 张订单，跳过 {$skipped} 行";
         if ($errors) {
             $msg .= '（' . implode('；', array_slice(array_unique($errors), 0, 3)) . '）';
+        }
+
+        if ($created) {
+            app(AuditService::class)->log('order.imported', "导入订单：{$msg}");
         }
 
         return redirect()->route('orders.index')->with($created ? 'ok' : 'err', $msg);

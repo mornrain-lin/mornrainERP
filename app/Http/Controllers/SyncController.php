@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Shop;
 use App\Models\SyncLog;
+use App\Services\Audit\AuditService;
 use App\Services\PlatformSync\OrderSyncService;
 use App\Services\PlatformSync\PlatformConnectorFactory;
 use Illuminate\Http\RedirectResponse;
@@ -49,6 +50,8 @@ class SyncController extends Controller
 
         $shop->forceFill($payload)->save();
 
+        app(AuditService::class)->log('sync.config', "保存店铺 {$shop->name} 的平台对接凭证", $shop);
+
         return back()->with('ok', "店铺 {$shop->name} 的对接配置已保存");
     }
 
@@ -57,6 +60,12 @@ class SyncController extends Controller
         $days = max(1, min(30, (int) $request->input('days', 3)));
 
         $result = $service->syncShop($shop, now()->subDays($days), now(), 'manual');
+
+        app(AuditService::class)->log(
+            'sync.run',
+            "拉单（{$shop->name}）：" . $result['message'],
+            $shop
+        );
 
         return back()->with(
             $result['status'] === 'success' ? 'ok' : 'err',
@@ -75,6 +84,11 @@ class SyncController extends Controller
         $created = collect($results)->sum(fn ($r) => $r['result']['created']);
         $updated = collect($results)->sum(fn ($r) => $r['result']['updated']);
         $failed = collect($results)->filter(fn ($r) => $r['result']['status'] !== 'success')->count();
+
+        app(AuditService::class)->log(
+            'sync.run',
+            sprintf('批量拉单 %d 个店铺：新建 %d 单，更新 %d 单，失败 %d 个', count($results), $created, $updated, $failed)
+        );
 
         return back()->with(
             $failed > 0 ? 'err' : 'ok',

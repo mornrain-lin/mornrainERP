@@ -1,15 +1,20 @@
 @extends('layouts.app')
 
-@section('title', '新建采购单')
-@section('desc', '录入供应商与采购明细，保存为草稿或已下单')
+@php($editing = $po->exists)
+
+@section('title', $editing ? '编辑采购单 · ' . $po->po_no : '新建采购单')
+@section('desc', $editing
+    ? '仅「草稿 / 已下单」可编辑；已入库或已取消的单据不可修改'
+    : '录入供应商与采购明细，可保存为草稿或直接标记已下单')
 
 @section('actions')
     <a class="btn" href="{{ route('purchases.index') }}">← 返回列表</a>
 @endsection
 
 @section('content')
-<form method="post" action="{{ route('purchases.store') }}">
+<form method="post" action="{{ $editing ? route('purchases.update', $po) : route('purchases.store') }}">
     @csrf
+    @if ($editing) @method('PUT') @endif
 
     <div class="card">
         <div class="card-head"><h2 class="card-title">基础信息</h2></div>
@@ -20,29 +25,37 @@
                     <select name="supplier_id" required>
                         <option value="">选择供应商</option>
                         @foreach ($suppliers as $s)
-                            <option value="{{ $s->id }}" @selected(old('supplier_id') == $s->id)>{{ $s->name }}</option>
+                            <option value="{{ $s->id }}" @selected(old('supplier_id', $po->supplier_id) == $s->id)>{{ $s->name }}</option>
                         @endforeach
                     </select>
+                    @if ($suppliers->isEmpty())
+                        <div class="hint" style="color:var(--danger)">
+                            还没有启用中的供应商，请先 <a href="{{ route('suppliers.create') }}">新增供应商</a>
+                        </div>
+                    @endif
                 </div>
                 <div class="field">
                     <label>状态</label>
                     <select name="status">
-                        <option value="draft" @selected(old('status', 'draft') === 'draft')>草稿</option>
-                        <option value="ordered" @selected(old('status') === 'ordered')>已下单</option>
+                        <option value="draft" @selected(old('status', $editing ? $po->status->value : 'draft') === 'draft')>草稿</option>
+                        <option value="ordered" @selected(old('status', $editing ? $po->status->value : '') === 'ordered')>已下单</option>
                     </select>
+                    <div class="hint">收货入库后状态自动变为「已入库」</div>
                 </div>
                 <div class="field">
                     <label>下单日期</label>
-                    <input type="date" name="order_date" value="{{ old('order_date', now()->toDateString()) }}">
+                    <input type="date" name="order_date"
+                           value="{{ old('order_date', $editing ? ($po->order_date?->toDateString() ?? '') : now()->toDateString()) }}">
                 </div>
                 <div class="field">
                     <label>预计到货</label>
-                    <input type="date" name="expected_at" value="{{ old('expected_at') }}">
+                    <input type="date" name="expected_at"
+                           value="{{ old('expected_at', $editing && $po->expected_at ? $po->expected_at->toDateString() : '') }}">
                 </div>
             </div>
             <div class="field" style="margin-top:14px">
                 <label>备注</label>
-                <textarea name="remark" rows="2">{{ old('remark') }}</textarea>
+                <textarea name="remark" rows="2">{{ old('remark', $po->remark) }}</textarea>
             </div>
         </div>
     </div>
@@ -68,17 +81,21 @@
                     <tbody></tbody>
                 </table>
             </div>
+            <div class="hint" style="margin-top:10px">
+                合计：<strong id="grand-total">¥0.00</strong>（保存时按明细行小计自动汇总）
+            </div>
         </div>
     </div>
 
     <div class="btn-row" style="margin-top:18px">
-        <button class="btn btn-primary" type="submit">保存采购单</button>
+        <button class="btn btn-primary" type="submit">{{ $editing ? '保存修改' : '保存采购单' }}</button>
         <a class="btn" href="{{ route('purchases.index') }}">取消</a>
     </div>
 </form>
 
 <script>
     const PRODUCTS = @json($products->map(fn ($p) => ['sku' => $p->sku, 'name' => $p->name, 'cost' => (float) $p->cost_price]));
+    const INITIAL = @json($items);
     const tbody = document.querySelector('#items tbody');
 
     function productOptions(selected) {
@@ -87,19 +104,25 @@
         ).join('');
     }
 
-    function addRow() {
+    function addRow(item) {
+        item = item || {};
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><select name="items[][sku]" onchange="syncProduct(this)" style="width:100%">
-                <option value="">— 选择 SKU —</option>${productOptions()}
+                <option value="">— 选择 SKU —</option>${productOptions(item.sku || '')}
             </select></td>
             <td><input type="text" name="items[][product_name]" style="width:100%"></td>
-            <td><input type="number" min="1" value="1" name="items[][quantity]" class="qty" oninput="recalc(this)" style="width:100%"></td>
-            <td><input type="number" step="0.01" min="0" value="0" name="items[][unit_cost]" class="cost" oninput="recalc(this)" style="width:100%"></td>
+            <td><input type="number" min="1" name="items[][quantity]" class="qty" oninput="recalc(this)" style="width:100%"></td>
+            <td><input type="number" step="0.01" min="0" name="items[][unit_cost]" class="cost" oninput="recalc(this)" style="width:100%"></td>
             <td class="num line-total">¥0.00</td>
-            <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()">×</button></td>
+            <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); grandTotal()">×</button></td>
         `;
         tbody.appendChild(tr);
+
+        tr.querySelector('[name="items[][product_name]"]').value = item.product_name || '';
+        tr.querySelector('.qty').value = item.quantity ?? 1;
+        tr.querySelector('.cost').value = item.unit_cost ?? 0;
+        recalc(tr.querySelector('.cost'));
     }
 
     function syncProduct(sel) {
@@ -117,8 +140,22 @@
         const q = parseFloat(tr.querySelector('.qty')?.value || 0);
         const c = parseFloat(tr.querySelector('.cost')?.value || 0);
         tr.querySelector('.line-total').textContent = '¥' + (q * c).toFixed(2);
+        grandTotal();
     }
 
-    addRow();
+    function grandTotal() {
+        let sum = 0;
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const t = tr.querySelector('.line-total')?.textContent || '0';
+            sum += parseFloat(t.replace(/[^\d.-]/g, '')) || 0;
+        });
+        document.getElementById('grand-total').textContent = '¥' + sum.toFixed(2);
+    }
+
+    if (INITIAL.length) {
+        INITIAL.forEach(addRow);
+    } else {
+        addRow();
+    }
 </script>
 @endsection

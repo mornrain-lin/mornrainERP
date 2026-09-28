@@ -1,6 +1,6 @@
 # mornrainERP
 
-> 轻量级跨境电商 ERP · 订单 / 库存 / 利润 / 平台对接（v0.5）
+> 轻量级跨境电商 ERP · 订单 / 库存 / 利润 / 采购 / 审计（v0.6）
 > 对标 [moringrain.com](https://www.moringrain.com/) 的产品定位：**让每一单利润算得清**
 
 面向跨境电商小团队的轻量级 ERP。核心解决四件事：**多平台订单归集 → 库存与发货闭环 → 自动核算利润 → 团队协同**。
@@ -65,9 +65,11 @@ mornrainerp/
 │   │   ├── InventoryController.php  # 库存总览 / 采购建议 / 入库出库盘点
 │   │   ├── OrderController.php      # 订单 CRUD / 状态流转 / 发货（扣库存）/ 导入导出
 │   │   ├── ProductController.php    # 商品 SKU 管理
-│   │   ├── PurchaseController.php   # 采购单 CRUD / 收货入库 / 按建议生成
+│   │   ├── AuditController.php      # 操作审计日志（只读检索）
+│   │   ├── PurchaseController.php   # 采购单 CRUD / 收货入库 / 状态流转 / 按建议生成
 │   │   ├── ReportController.php     # 利润报表 + 利润明细导出 + 广告费归集
 │   │   ├── ShipmentController.php   # 物流轨迹刷新（单条 / 全部在途）
+│   │   ├── SupplierController.php   # 供应商 CRUD / 启用停用
 │   │   ├── ShopController.php       # 店铺管理
 │   │   ├── SyncController.php       # 平台对接（凭证配置 / 手动拉单）
 │   │   └── UserController.php       # 账号管理（仅管理员）
@@ -76,8 +78,11 @@ mornrainerp/
 │   │   └── EnsureAdmin.php          # 管理员闸门
 │   ├── Models/                      # User / Platform / Shop / Product / Order /
 │   │                                # OrderItem / Shipment / SyncLog / StockMovement /
-│   │                                # Supplier / PurchaseOrder / PurchaseOrderItem
+│   │                                # Supplier / PurchaseOrder / PurchaseOrderItem /
+│   │                                # ActivityLog
 │   ├── Services/
+│   │   ├── Audit/                                # 操作审计
+│   │   │   └── AuditService.php                  # 统一埋点入口（自动补操作人/IP）
 │   │   ├── Inventory/StockService.php          # 库存唯一出入口 + 采购建议
 │   │   ├── Logistics/                            # 物流轨迹回写
 │   │   │   ├── CarrierTracker.php               # 轨迹接口
@@ -97,12 +102,13 @@ mornrainerp/
 ├── app/Console/Commands/TrackShipments.php # php artisan shipments:track（可挂定时）
 ├── config/plan.php                          # 套餐与额度（ERP_PLAN / ERP_FREE_QUOTA）
 ├── database/
-│   ├── migrations/                  # 13 张表（含 suppliers / purchase_orders /
-│   │                                #   purchase_order_items / shipments 轨迹字段）
+│   ├── migrations/                  # 14 张表（含 suppliers / purchase_orders /
+│   │                                #   purchase_order_items / activity_logs / shipments 轨迹字段）
 │   └── seeders/                     # AdminUser + Platform + Supplier + DemoData + Inventory
 ├── public/css/app.css               # 本地后台样式（自研，含额度条与物流时间线）
 ├── resources/views/                 # layouts / dashboard / orders / inventory / sync /
-│                                    # shops / products / reports / users / auth / purchases
+│                                    # shops / products / reports / users / auth /
+│                                    # purchases / suppliers / audit
 └── routes/
     ├── web.php                      # 后台路由（auth / admin 中间件）
     └── console.php                  # 定时拉单 + 每日 08:00 物流轨迹刷新开关
@@ -129,8 +135,10 @@ users (账号 admin/staff) ── 操作人，写入库存流水
 sync_logs (同步日志) ── n→1 shops
 
 suppliers (供应商) ── 1 n ── purchase_orders (采购单) ── n purchase_order_items
-purchase_orders ── n→1 shops(created_by: users)
+purchase_orders ── n→1 users (created_by)
 purchase_order_items ── n→1 products   # 收货时按明细回写库存
+activity_logs (审计) ── n→1 users（user_id 可空：登录失败等未登录场景）
+                     └─ 多态 subject_type + subject_id 指向被操作对象
 ```
 
 > 采购入库：收货时 `StockService::adjust(product, qty, 'po_in')` 写入 `stock_movements`，
@@ -235,11 +243,14 @@ purchase_order_items ── n→1 products   # 收货时按明细回写库存
 - 概览页「本月订单额度」进度条：已用/限制、剩余数、`pct≥100` 标红
 
 ### 10. 采购单与供应商 `/purchases`（管理员）
-- **供应商**：`suppliers` 表（名称/联系人/电话/邮箱/地址/备注/是否启用），`SupplierSeeder` 空库写入 2 个演示供应商
-- **采购单**：`purchase_orders` + 明细 `purchase_order_items`，状态机 `POStatus`（草稿→已下单→已收货→已取消），`recalcTotal()` 自动汇总行小计
-- **收货入库**：`receive()` 在事务内对每条明细调用 `StockService::adjust(..., StockMovement::TYPE_PO_IN, ...)`，库存回写、流水类型标记为「采购入库」，PO 置已收货并写 `received_at`
-- **一键补货**：库存页「采购建议」可一键 `POST /purchases/from-suggestions` 生成草稿采购单（自动汇总所有低于安全库存的 SKU 预估采购额）
-- 列表/详情均按 `canReceive()` 控制是否展示收货入口
+- **采购单**：`purchase_orders` + 明细 `purchase_order_items`，状态机 `POStatus`（草稿→已下单→已入库→已取消），`recalcTotal()` 自动汇总行小计
+- **完整生命周期**：新建（草稿/已下单）→ 编辑 → 标记下单 → 收货入库 → 取消 → 删除；列表支持按单号/状态/供应商筛选
+- **收货入库**：`receive()` 在事务内对每条明细调用 `StockService::adjust(..., StockMovement::TYPE_PO_IN, ...)`，库存回写、流水类型标记为「采购入库」，PO 置已入库并写 `received_at`
+- **编辑守卫** `editGuard()`：仅「草稿/已下单」可编辑；已有明细入库的单据禁止编辑，避免与库存流水对不上
+- **删除守卫**：仅「草稿/已取消」可删除，删除时级联清理明细（不留孤儿行）
+- **一键补货**：库存页「采购建议」可一键 `POST /purchases/from-suggestions` 生成草稿采购单
+- 表单 `purchases/form.blade.php` 由新建/编辑共用，明细行可动态增删并实时算行小计与合计
+- 供应商的维护见下方「13. 供应商管理」
 
 ### 11. 广告费自动归集 `/reports/profit`
 - 利润公式已含 `广告分摊` 口径；本次在利润报表与概览补充**广告费聚合视图**
@@ -254,6 +265,20 @@ purchase_order_items ── n→1 products   # 收货时按明细回写库存
 - 定时：`php artisan shipments:track`（刷新全部在途），`SYNC_SCHEDULE_ENABLED=true` 时由 `schedule:run` 每日 08:00 执行
 
 > 接入真实物流商只需实现 `CarrierTracker` 接口并在 `AppServiceProvider` 重新 `bind` 即可，其余逻辑零改动。
+
+### 13. 供应商管理 `/suppliers`（管理员）
+- 完整 CRUD：名称（唯一校验）/联系人/电话/邮箱/地址/备注/启用状态；支持按名称·联系人·电话·邮箱搜索、按启用状态筛选
+- **停用代替删除**：已关联采购单的供应商禁止删除，只能停用，以保留历史单据归属；启用后重新出现在采购单下拉
+- 采购单下拉只列启用中的供应商；**编辑采购单时，若原供应商已停用也会保留在下拉里**，避免归属被静默改掉
+- 空状态直接给出「先新增一家」入口（此前只能靠 seeder 的演示数据，无法自建）
+
+### 14. 操作审计 `/audit`（管理员）
+- `activity_logs` 表记录：操作人 / 动作 / 对象（多态 `subject_type`+`subject_id`）/ 描述 / IP / UA / 时间
+- `AuditService::log()` 为统一入口，自动补齐操作人与 IP；已埋点 **30+ 个动作**：
+  登录（成功 / 失败 / 退出 / 改密码）、订单（创建 / 修改 / 删除 / 发货 / 批量发货 / 状态流转 / 导入）、
+  采购（创建 / 修改 / 删除 / 下单 / 收货 / 取消）、库存调整、供应商、商品、店铺、账号管理、平台对接
+- 只读检索页：按关键词 / 动作 / 操作人 / 时间范围（1·7·30 天·全部）筛选，分页 30 条
+- 日志**只增不改**：不提供编辑与删除入口，保证可追溯性
 
 ---
 
@@ -345,7 +370,9 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 | P2 | 看板增强 | 🟡 部分 | 已做环比与 14 日趋势；同比、SKU 趋势、汇率影响待补 |
 | P2 | 广告费自动归集 | ✅ 已交付 | 报表与概览补充广告费 / 占比 / ROAS 聚合视图 |
 | P2 | 物流轨迹回写 | ✅ 已交付 | 运单轨迹同步 + 签收自动完成订单 + 每日定时刷新 |
-| P2 | 操作审计 | ⬜ 待做 | 关键操作留痕（目前库存流水已记录操作人） |
+| P2 | 操作审计 | ✅ 已交付 | `activity_logs` + `AuditService`，覆盖 30+ 关键动作，只读检索页 |
+
+> 至此 P0–P2 规划模块已全部交付。
 
 ---
 
@@ -369,6 +396,14 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 - 广告归集：报表页显示「广告费占比」「ROAS」；概览显示月度广告费与占比
 - 物流：单条 `track` 302、`events` 写入 5 节点、`status` 推进 `delivered`、`last_tracked_at` 写入；`artisan shipments:track` 刷新 29 条，delivered 75/total 76
 - 全量 `php -l` LINT-OK；4 个新迁移 `migrate` 成功；`SupplierSeeder` 写入 2 条
+
+**v0.6（本次）**
+
+- 供应商：CRUD 全流程 200/302；新建后 count 2→3、删除后回 2；已关联采购单的供应商删除被拦截（提示改用停用）
+- 采购单：新建草稿（MR-0001 × 3 @ ¥5 = ¥15）→ 编辑页 200 → 标记下单 `draft→ordered` → 取消 `ordered→cancelled` → 删除成功，明细无残留（orphan=0）
+- 守卫：已入库采购单编辑被拦截（302 + 提示），草稿采购单编辑页 200，符合预期
+- 操作审计：库存调整（in 1 / out 1）产生 2 条 `inventory.adjusted`，含操作人 `user=1`、IP、描述与库存快照；审计页 200 可检索
+- 全量：`php -l` LINT-OK；18 个页面全部 200；概览 KPI 稳定 8 块（桌面 4 列 = 4+4）
 
 **v0.1（基线）**
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Platform;
 use App\Models\Shop;
+use App\Services\Audit\AuditService;
 use Illuminate\Http\Request;
 
 class ShopController extends Controller
@@ -34,6 +35,8 @@ class ShopController extends Controller
         $data = $this->validated($request);
         Shop::create($data);
 
+        app(AuditService::class)->log('shop.created', "新增店铺 {$data['name']}");
+
         return redirect()->route('shops.index')->with('ok', '店铺已创建');
     }
 
@@ -49,6 +52,8 @@ class ShopController extends Controller
     {
         $shop->update($this->validated($request));
 
+        app(AuditService::class)->log('shop.updated', "修改店铺 {$shop->name}", $shop);
+
         return redirect()->route('shops.index')->with('ok', '店铺已更新');
     }
 
@@ -58,6 +63,8 @@ class ShopController extends Controller
             return back()->with('err', '该店铺下已有订单，无法删除（可先停用）');
         }
         $shop->delete();
+
+        app(AuditService::class)->log('shop.deleted', "删除店铺 {$shop->name}");
 
         return redirect()->route('shops.index')->with('ok', '店铺已删除');
     }

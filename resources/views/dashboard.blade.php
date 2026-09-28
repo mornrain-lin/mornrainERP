@@ -66,18 +66,20 @@
             <div class="kpi kpi-accent amber">
                 <div class="kpi-label">本月订单额度（{{ $quotaInfo['plan'] === 'free' ? '免费版' : $quotaInfo['plan'] }}）</div>
                 <div class="kpi-value">{{ number_format($quotaInfo['used']) }}<span style="font-size:16px"> / {{ number_format($quotaInfo['limit']) }}</span></div>
-                <div class="kpi-foot">
-                    剩余 {{ $quotaInfo['remaining'] === null ? '∞' : number_format($quotaInfo['remaining']) }} 单
-                    @if ($kpi['month_ad'] > 0)· 广告费 ¥{{ number_format($kpi['month_ad'], 2) }}（{{ $kpi['month_ad_share'] }}%）@endif
-                </div>
+                <div class="kpi-foot">剩余 {{ number_format($quotaInfo['remaining']) }} 单</div>
             </div>
         @else
-            <div class="kpi kpi-accent amber">
-                <div class="kpi-label">本月广告费</div>
-                <div class="kpi-value">¥{{ number_format($kpi['month_ad'], 2) }}</div>
-                <div class="kpi-foot">占营收 {{ $kpi['month_ad_share'] }}%</div>
+            <div class="kpi kpi-accent">
+                <div class="kpi-label">本月订单数</div>
+                <div class="kpi-value">{{ number_format($quotaInfo['used']) }}</div>
+                <div class="kpi-foot">当前套餐不限量</div>
             </div>
         @endif
+        <div class="kpi kpi-accent amber">
+            <div class="kpi-label">本月广告费</div>
+            <div class="kpi-value">¥{{ number_format($kpi['month_ad'], 2) }}</div>
+            <div class="kpi-foot">占营收 {{ $kpi['month_ad_share'] }}%</div>
+        </div>
     </div>
 
     @if ($quotaInfo['limit'] > 0)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Audit\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules\Password;
@@ -46,6 +47,8 @@ class UserController extends Controller
             'is_active' => true,
         ]);
 
+        app(AuditService::class)->log('user.created', "新建账号 {$data['name']}（{$data['email']}）");
+
         return back()->with('ok', "账号 {$data['name']} 创建成功");
     }
 
@@ -57,6 +60,12 @@ class UserController extends Controller
 
         $user->forceFill(['is_active' => ! $user->is_active])->save();
 
+        app(AuditService::class)->log(
+            'user.toggled',
+            '账号 ' . $user->name . ($user->is_active ? ' 已启用' : ' 已停用'),
+            $user
+        );
+
         return back()->with('ok', $user->is_active ? "账号 {$user->name} 已启用" : "账号 {$user->name} 已停用");
     }
 
@@ -67,6 +76,8 @@ class UserController extends Controller
         ], ['password.required' => '请输入新密码']);
 
         $user->forceFill(['password' => User::hashPassword($data['password'])])->save();
+
+        app(AuditService::class)->log('user.password', "重置账号 {$user->name} 的密码", $user);
 
         return back()->with('ok', "账号 {$user->name} 的密码已重置");
     }
@@ -82,6 +93,8 @@ class UserController extends Controller
         }
 
         $user->delete();
+
+        app(AuditService::class)->log('user.deleted', "删除账号 {$user->name}（{$user->email}）");
 
         return back()->with('ok', "账号 {$user->name} 已删除");
     }

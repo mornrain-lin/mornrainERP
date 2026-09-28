@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -64,7 +66,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/', [PurchaseController::class, 'store'])->name('store');
         Route::post('/from-suggestions', [PurchaseController::class, 'fromSuggestions'])->name('from-suggestions');
         Route::get('/{purchaseOrder}', [PurchaseController::class, 'show'])->name('show');
+        Route::get('/{purchaseOrder}/edit', [PurchaseController::class, 'edit'])->name('edit');
+        Route::put('/{purchaseOrder}', [PurchaseController::class, 'update'])->name('update');
+        Route::delete('/{purchaseOrder}', [PurchaseController::class, 'destroy'])->name('destroy');
         Route::post('/{purchaseOrder}/receive', [PurchaseController::class, 'receive'])->name('receive');
+        Route::post('/{purchaseOrder}/place', [PurchaseController::class, 'place'])->name('place');
+        Route::post('/{purchaseOrder}/cancel', [PurchaseController::class, 'cancel'])->name('cancel');
     });
 
     // ---- 物流轨迹回写 ----
@@ -84,6 +91,10 @@ Route::middleware('auth')->group(function () {
     // ---- 基础资料（管理员） ----
     Route::resource('shops', ShopController::class)->except(['show'])->middleware('admin');
     Route::resource('products', ProductController::class)->except(['show'])->middleware('admin');
+    Route::resource('suppliers', SupplierController::class)->except(['show'])->middleware('admin');
+    Route::post('suppliers/{supplier}/toggle', [SupplierController::class, 'toggle'])
+        ->middleware('admin')
+        ->name('suppliers.toggle');
 
     // ---- 报表 ----
     Route::get('reports/profit', [ReportController::class, 'profit'])->name('reports.profit');
@@ -99,5 +110,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/{user}/toggle', [UserController::class, 'toggle'])->name('toggle');
         Route::put('/{user}/password', [UserController::class, 'resetPassword'])->name('password');
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+    });
+
+    // ---- 操作审计（管理员） ----
+    Route::prefix('audit')->name('audit.')->middleware('admin')->group(function () {
+        Route::get('/', [AuditController::class, 'index'])->name('index');
     });
 });

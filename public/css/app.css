@@ -138,9 +138,9 @@ a:hover { text-decoration: underline; }
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     margin-bottom: 18px;
 }
-@media (min-width: 1080px) {
-    /* 桌面端固定 3 列，6 个指标正好 3+3，避免出现 4+2 的失衡排布 */
-    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+@media (min-width: 1280px) {
+    /* 桌面端固定 4 列：8 个指标正好 4+4，避免出现 3+3+2 或 3+3+1 的失衡排布 */
+    .kpi-grid { grid-template-columns: repeat(4, 1fr); }
 }
 .kpi {
     background: var(--card); border: 1px solid var(--line);
