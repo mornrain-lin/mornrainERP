@@ -256,10 +256,10 @@ textarea { resize: vertical; min-height: 72px; }
 .bar-track { height: 7px; background: var(--line-2); border-radius: 99px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 99px; background: var(--brand); }
 
-.trend { display: flex; align-items: flex-end; gap: 10px; height: 140px; padding-top: 8px; }
-.trend-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
-.trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 100%; width: 100%; justify-content: center; }
-.trend-bar { width: 12px; border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s; }
+.trend { display: flex; align-items: flex-end; gap: 6px; height: 140px; padding-top: 8px; }
+.trend-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.trend-bars { display: flex; align-items: flex-end; gap: 2px; height: 100%; width: 100%; justify-content: center; }
+.trend-bar { width: 10px; border-radius: 3px 3px 0 0; min-height: 2px; transition: height .3s; }
 .trend-bar.rev { background: linear-gradient(180deg, #6ea3ff, var(--brand)); }
 .trend-bar.pro { background: linear-gradient(180deg, #4fd0a0, var(--success)); }
 .trend-label { font-size: 11px; color: var(--ink-3); }
@@ -296,6 +296,49 @@ textarea { resize: vertical; min-height: 72px; }
 .empty .big { font-size: 30px; margin-bottom: 8px; }
 
 .section-title { font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 0 0 10px; }
+
+/* ---------------- 账号区 ---------------- */
+.user-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px 4px 10px; border: 1px solid var(--line);
+    border-radius: 999px; background: #fff;
+}
+.user-chip .avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand), #5b9bff);
+    color: #fff; font-weight: 700; font-size: 12px;
+    display: grid; place-items: center;
+}
+.user-meta { display: flex; flex-direction: column; line-height: 1.2; font-size: 12px; }
+.inline-form { display: flex; gap: 6px; align-items: center; }
+.inline-form input { width: auto; }
+
+/* ---------------- 登录页 ---------------- */
+.auth-body {
+    background:
+        radial-gradient(1200px 500px at 15% -10%, #e7efff 0%, rgba(231,239,255,0) 60%),
+        radial-gradient(900px 400px at 100% 0%, #eaf7f1 0%, rgba(234,247,241,0) 55%),
+        var(--bg);
+    min-height: 100vh;
+}
+.auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth-card {
+    width: 100%; max-width: 400px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow); padding: 30px 30px 24px;
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.auth-brand .brand-name { font-size: 17px; font-weight: 700; }
+.auth-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+.auth-desc { font-size: 12px; color: var(--ink-3); margin: 0 0 18px; }
+.auth-card .field { margin-bottom: 14px; }
+.auth-remember {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: var(--ink-2); margin-bottom: 16px;
+}
+.auth-remember input { width: auto; }
+.auth-submit { width: 100%; padding: 10px 14px; font-size: 14px; }
+.auth-foot { margin-top: 18px; font-size: 11px; color: var(--ink-3); text-align: center; }
 
 @media (max-width: 900px) {
     .layout { flex-direction: column; }

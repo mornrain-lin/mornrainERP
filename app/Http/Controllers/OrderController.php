@@ -9,6 +9,7 @@ use App\Models\Platform;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\Shop;
+use App\Services\Inventory\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -176,7 +177,7 @@ class OrderController extends Controller
     }
 
     /** 单条状态流转（带状态机校验） */
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, StockService $stock)
     {
         $data = $request->validate([
             'status' => 'required|string',
@@ -208,13 +209,20 @@ class OrderController extends Controller
             $payload['remark'] = trim(($order->remark ? $order->remark . "\n" : '') . $data['remark']);
         }
 
-        $order->update($payload);
+        DB::transaction(function () use ($order, $target, $payload, $stock) {
+            $order->update($payload);
+
+            // 退款完成：把发货时扣掉的库存还回去
+            if ($target === OrderStatus::Refunded && $order->shipped_at) {
+                $stock->returnForOrder($order);
+            }
+        });
 
         return back()->with('ok', "订单状态已更新为「{$target->label()}」");
     }
 
-    /** 订单发货：写入一条物流记录并推进状态 */
-    public function ship(Request $request, Order $order)
+    /** 订单发货：写入一条物流记录、推进状态，并按明细扣减库存 */
+    public function ship(Request $request, Order $order, StockService $stock)
     {
         $data = $request->validate([
             'carrier' => 'required|string|max:64',
@@ -226,7 +234,7 @@ class OrderController extends Controller
             return back()->with('err', '仅「待发货 / 待付款」订单可以发货');
         }
 
-        DB::transaction(function () use ($order, $data) {
+        DB::transaction(function () use ($order, $data, $stock) {
             Shipment::create([
                 'order_id' => $order->id,
                 'carrier' => $data['carrier'],
@@ -242,13 +250,16 @@ class OrderController extends Controller
                 'paid_at' => $order->paid_at ?? now(),
                 'shipping_cost' => $data['cost'] ?? $order->shipping_cost,
             ]);
+
+            // 发货即出库
+            $stock->deductForOrder($order);
         });
 
-        return back()->with('ok', "订单 {$order->order_no} 已发货");
+        return back()->with('ok', "订单 {$order->order_no} 已发货，库存已扣减");
     }
 
-    /** 批量发货：一次为多个订单填写运单号 */
-    public function batchShip(Request $request)
+    /** 批量发货：一次为多个订单填写运单号（同样按明细扣减库存） */
+    public function batchShip(Request $request, StockService $stock)
     {
         $data = $request->validate([
             'carrier' => 'required|string|max:64',
@@ -279,7 +290,7 @@ class OrderController extends Controller
                 $fail[] = "状态不可发货：{$orderNo}（{$order->status->label()}）";
                 continue;
             }
-            DB::transaction(function () use ($order, $data, $trackingNo) {
+            DB::transaction(function () use ($order, $data, $trackingNo, $stock) {
                 Shipment::create([
                     'order_id' => $order->id,
                     'carrier' => $data['carrier'],
@@ -292,6 +303,7 @@ class OrderController extends Controller
                     'shipped_at' => now(),
                     'paid_at' => $order->paid_at ?? now(),
                 ]);
+                $stock->deductForOrder($order);
             });
             $ok++;
         }

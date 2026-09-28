@@ -4,7 +4,8 @@
 @section('desc', $from . ' 至 ' . $to . ' · 平台 / 店铺 / 日期三维度聚合')
 
 @section('actions')
-    <a class="btn" href="{{ route('orders.export', ['date_from' => $from, 'date_to' => $to]) }}">↓ 导出明细</a>
+    <a class="btn" href="{{ route('reports.export', ['date_from' => $from, 'date_to' => $to]) }}">↓ 导出利润明细</a>
+    <a class="btn" href="{{ route('orders.export', ['date_from' => $from, 'date_to' => $to]) }}">↓ 导出订单</a>
 @endsection
 
 @section('content')

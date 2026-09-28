@@ -27,6 +27,9 @@
                 <a class="nav-item {{ request()->routeIs('orders.index') ? 'active' : '' }}" href="{{ route('orders.index') }}">
                     <span class="ico">▤</span> 订单管理
                 </a>
+                <a class="nav-item {{ request()->routeIs('inventory.*') ? 'active' : '' }}" href="{{ route('inventory.index') }}">
+                    <span class="ico">▦</span> 库存管理
+                </a>
                 <a class="nav-item {{ request()->routeIs('orders.import.form') ? 'active' : '' }}" href="{{ route('orders.import.form') }}">
                     <span class="ico">⇪</span> 订单导入
                 </a>
@@ -46,10 +49,22 @@
                     <span class="ico">▣</span> 商品 / SKU
                 </a>
             </div>
+            @if (auth()->user()?->isAdmin())
+                <div class="nav-group">
+                    <div class="nav-title">系统</div>
+                    <a class="nav-item {{ request()->routeIs('sync.*') ? 'active' : '' }}" href="{{ route('sync.index') }}">
+                        <span class="ico">⇄</span> 平台对接
+                    </a>
+                    <a class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                        <span class="ico">☺</span> 账号管理
+                    </a>
+                </div>
+            @endif
         </nav>
 
         <div class="sidebar-foot">
-            MVP v0.1 · 订单管理<br>
+            v0.4 · 订单 · 利润 · 库存<br>
+            登录：{{ auth()->user()?->email }}<br>
             © {{ date('Y') }} mornrainERP
         </div>
     </aside>
@@ -62,7 +77,21 @@
                     <div class="page-desc">@yield('desc')</div>
                 @endif
             </div>
-            <div class="topbar-right">@yield('actions')</div>
+            <div class="topbar-right">
+                @yield('actions')
+                <div class="user-chip">
+                    <span class="avatar">{{ mb_substr(auth()->user()?->name ?? 'U', 0, 1) }}</span>
+                    <div class="user-meta">
+                        <span class="strong">{{ auth()->user()?->name }}</span>
+                        <span class="muted">{{ auth()->user()?->roleLabel() }}</span>
+                    </div>
+                    <a class="btn btn-sm" href="{{ route('password.form') }}">改密码</a>
+                    <form method="post" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="btn btn-sm" type="submit">退出</button>
+                    </form>
+                </div>
+            </div>
         </header>
 
         <div class="content">

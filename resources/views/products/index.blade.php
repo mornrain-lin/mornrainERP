@@ -32,7 +32,7 @@
             <div class="table-wrap">
                 <table class="tbl">
                     <thead>
-                    <tr><th>SKU</th><th>商品名称</th><th>品类</th><th class="num">采购成本(CNY)</th><th class="num">重量(g)</th><th>状态</th><th></th></tr>
+                    <tr><th>SKU</th><th>商品名称</th><th>品类</th><th class="num">采购成本(CNY)</th><th class="num">库存</th><th class="num">重量(g)</th><th>状态</th><th></th></tr>
                     </thead>
                     <tbody>
                     @forelse ($products as $p)
@@ -41,6 +41,10 @@
                             <td>{{ $p->name }}</td>
                             <td>{{ $p->category ?? '—' }}</td>
                             <td class="num strong">¥{{ number_format($p->cost_price, 2) }}</td>
+                            <td class="num {{ $p->stock <= 0 ? 'up' : ($p->isLowStock() ? 'muted' : '') }}">
+                                {{ $p->stock }}
+                                @if ($p->isLowStock())<span class="badge badge-warn">低</span>@endif
+                            </td>
                             <td class="num">{{ number_format($p->weight_g, 0) }}</td>
                             <td>@if ($p->is_active)<span class="badge badge-success">在售</span>@else<span class="badge badge-muted">停用</span>@endif</td>
                             <td class="nowrap">
@@ -53,7 +57,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7"><div class="empty"><div class="big">▣</div>还没有商品</div></td></tr>
+                        <tr><td colspan="8"><div class="empty"><div class="big">▣</div>还没有商品</div></td></tr>
                     @endforelse
                     </tbody>
                 </table>

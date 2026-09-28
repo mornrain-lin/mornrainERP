@@ -12,27 +12,45 @@
         $maxRev = max(1, collect($trend)->max('revenue'));
     @endphp
 
-    {{-- KPI --}}
+    {{-- KPI：数值 + 环比（涨红跌绿） --}}
     <div class="kpi-grid">
         <div class="kpi kpi-accent">
             <div class="kpi-label">今日订单</div>
             <div class="kpi-value">{{ number_format($kpi['today_orders']) }}</div>
-            <div class="kpi-foot">本月累计 {{ number_format($kpi['month_orders']) }} 单</div>
+            <div class="kpi-foot">本月 {{ number_format($kpi['month_orders']) }} 单 · 较昨日 {{ $kpi['dod']['orders'] === null ? '—' : ($kpi['dod']['orders'] >= 0 ? '↑' : '↓') . abs($kpi['dod']['orders']) . '%' }}</div>
         </div>
         <div class="kpi kpi-accent green">
             <div class="kpi-label">今日营收（CNY）</div>
             <div class="kpi-value">¥{{ number_format($kpi['today_revenue'], 2) }}</div>
-            <div class="kpi-foot">本月 ¥{{ number_format($kpi['month_revenue'], 2) }}</div>
+            <div class="kpi-foot">
+                较昨日
+                <span class="{{ $kpi['dod']['revenue'] === null ? 'muted' : ($kpi['dod']['revenue'] >= 0 ? 'up' : 'down') }}">
+                    {{ $kpi['dod']['revenue'] === null ? '—' : ($kpi['dod']['revenue'] >= 0 ? '↑' : '↓') . abs($kpi['dod']['revenue']) . '%' }}
+                </span>
+                · 本月 ¥{{ number_format($kpi['month_revenue'], 0) }}
+            </div>
         </div>
         <div class="kpi kpi-accent green">
             <div class="kpi-label">今日毛利（CNY）</div>
             <div class="kpi-value">¥{{ number_format($kpi['today_profit'], 2) }}</div>
-            <div class="kpi-foot">本月 ¥{{ number_format($kpi['month_profit'], 2) }}</div>
+            <div class="kpi-foot">
+                较昨日
+                <span class="{{ $kpi['dod']['profit'] === null ? 'muted' : ($kpi['dod']['profit'] >= 0 ? 'up' : 'down') }}">
+                    {{ $kpi['dod']['profit'] === null ? '—' : ($kpi['dod']['profit'] >= 0 ? '↑' : '↓') . abs($kpi['dod']['profit']) . '%' }}
+                </span>
+                · 本月 ¥{{ number_format($kpi['month_profit'], 0) }}
+            </div>
         </div>
         <div class="kpi kpi-accent">
             <div class="kpi-label">本月毛利率</div>
             <div class="kpi-value">{{ $kpi['month_margin'] }}<span style="font-size:16px">%</span></div>
-            <div class="kpi-foot">营收 ¥{{ number_format($kpi['month_revenue'], 0) }}</div>
+            <div class="kpi-foot">
+                环比上月
+                <span class="{{ $kpi['mom']['revenue'] === null ? 'muted' : ($kpi['mom']['revenue'] >= 0 ? 'up' : 'down') }}">
+                    {{ $kpi['mom']['revenue'] === null ? '—' : ($kpi['mom']['revenue'] >= 0 ? '↑' : '↓') . abs($kpi['mom']['revenue']) . '%' }}
+                </span>
+                营收
+            </div>
         </div>
         <div class="kpi kpi-accent amber">
             <div class="kpi-label">待发货</div>
@@ -46,13 +64,25 @@
         </div>
     </div>
 
+    @if ($lowStock->isNotEmpty())
+        <div class="alert alert-err">
+            <span>!</span>
+            <div>
+                <span class="strong">{{ $lowStock->count() }} 个 SKU 低于安全库存：</span>
+                {{ $lowStock->take(6)->map(fn ($p) => $p->sku . '（剩 ' . $p->stock . ' / 安全 ' . $p->safety_stock . '）')->implode('、') }}
+                @if ($lowStock->count() > 6) 等 @endif
+                <a href="{{ route('inventory.index') }}">去补货 →</a>
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-2">
         {{-- 近 7 日趋势 --}}
         <div class="card">
             <div class="card-head">
                 <div>
-                    <h2 class="card-title">近 7 日营收 / 毛利趋势</h2>
-                    <div class="card-desc">柱高按当日营收缩放</div>
+                    <h2 class="card-title">近 {{ count($trend) }} 日营收 / 毛利趋势</h2>
+                    <div class="card-desc">柱高按区间内最大营收缩放</div>
                 </div>
                 <div class="legend">
                     <span><i style="background:#2f6fed"></i>营收</span>
@@ -69,7 +99,7 @@
                                 <div class="trend-bar pro" style="height: {{ round(max(0, $t['profit']) / $maxRev * 100) }}%"
                                      title="毛利 ¥{{ number_format($t['profit'], 2) }}"></div>
                             </div>
-                            <div class="trend-label">{{ $t['date'] }}</div>
+                            <div class="trend-label">{{ $loop->index % 2 === 0 ? $t['date'] : '' }}</div>
                         </div>
                     @endforeach
                 </div>
@@ -91,7 +121,7 @@
                             <span class="chip"><span class="dot" style="background:{{ $ps['color'] }}"></span>{{ $ps['name'] }}</span>
                             <span class="mono">
                                 {{ $ps['orders'] }} 单 · ¥{{ number_format($ps['revenue'], 2) }}
-                                <span class="muted">/ 毛利 ¥{{ number_format($ps['profit'], 2) }}</span>
+                                <span class="muted">/ 毛利 ¥{{ number_format($ps['profit'], 2) }}（{{ $ps['margin'] }}%）</span>
                             </span>
                         </div>
                         <div class="bar-track">

@@ -36,6 +36,16 @@
                     <label>重量（克）</label>
                     <input type="number" step="0.01" name="weight_g" value="{{ old('weight_g', $product->weight_g) }}">
                 </div>
+                <div class="field">
+                    <label>当前库存</label>
+                    <input type="number" name="stock" min="0" value="{{ old('stock', $product->stock ?? 0) }}">
+                    <div class="hint">发货时自动扣减，也可在库存管理页入库/盘点</div>
+                </div>
+                <div class="field">
+                    <label>安全库存</label>
+                    <input type="number" name="safety_stock" min="0" value="{{ old('safety_stock', $product->safety_stock ?? 0) }}">
+                    <div class="hint">低于该值触发补货预警与采购建议</div>
+                </div>
             </div>
 
             <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px">

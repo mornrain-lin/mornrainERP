@@ -8,6 +8,7 @@ use App\Models\Platform;
 use App\Models\Shop;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -136,5 +137,53 @@ class ReportController extends Controller
             'from', 'to', 'totalRevenue', 'totalCost', 'totalProfit', 'margin',
             'costBreakdown', 'byPlatform', 'byShop', 'byDay', 'lossOrders', 'skuTop'
         ) + ['orderCount' => $valid->count()]);
+    }
+
+    /**
+     * 导出订单利润明细 CSV（带 BOM，Excel 打开不乱码）
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $from = $request->input('date_from', Carbon::now()->startOfMonth()->toDateString());
+        $to = $request->input('date_to', Carbon::today()->toDateString());
+
+        $orders = Order::query()
+            ->with(['platform', 'shop'])
+            ->withAggregates()
+            ->whereBetween('created_at', [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()])
+            ->orderBy('created_at')
+            ->get();
+
+        $filename = "mornrainERP-profit-{$from}-{$to}.csv";
+
+        return response()->streamDownload(function () use ($orders) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM
+
+            fputcsv($handle, [
+                '订单号', '下单时间', '平台', '店铺', '状态',
+                '营收(CNY)', '商品成本(CNY)', '物流(CNY)', '广告(CNY)', '其他(CNY)', '毛利(CNY)', '毛利率(%)',
+            ]);
+
+            foreach ($orders as $order) {
+                $p = $order->profit();
+                fputcsv($handle, [
+                    $order->order_no,
+                    $order->created_at?->format('Y-m-d H:i'),
+                    $order->platform?->name,
+                    $order->shop?->name,
+                    $order->status->label(),
+                    $p['revenue'],
+                    $p['product_cost'],
+                    (float) $order->shipping_cost,
+                    (float) $order->ad_cost,
+                    (float) $order->other_cost,
+                    $p['profit'],
+                    $p['margin'],
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }
