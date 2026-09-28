@@ -5,7 +5,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
@@ -53,6 +55,22 @@ Route::middleware('auth')->group(function () {
     Route::prefix('inventory')->name('inventory.')->group(function () {
         Route::get('/', [InventoryController::class, 'index'])->name('index');
         Route::post('/{product}/adjust', [InventoryController::class, 'adjust'])->name('adjust');
+    });
+
+    // ---- 采购管理（管理员） ----
+    Route::prefix('purchases')->name('purchases.')->middleware('admin')->group(function () {
+        Route::get('/', [PurchaseController::class, 'index'])->name('index');
+        Route::get('/create', [PurchaseController::class, 'create'])->name('create');
+        Route::post('/', [PurchaseController::class, 'store'])->name('store');
+        Route::post('/from-suggestions', [PurchaseController::class, 'fromSuggestions'])->name('from-suggestions');
+        Route::get('/{purchaseOrder}', [PurchaseController::class, 'show'])->name('show');
+        Route::post('/{purchaseOrder}/receive', [PurchaseController::class, 'receive'])->name('receive');
+    });
+
+    // ---- 物流轨迹回写 ----
+    Route::prefix('shipments')->name('shipments.')->group(function () {
+        Route::post('/track-all', [ShipmentController::class, 'trackAll'])->name('track-all');
+        Route::post('/{shipment}/track', [ShipmentController::class, 'track'])->name('track');
     });
 
     // ---- 平台对接（自动拉单） ----

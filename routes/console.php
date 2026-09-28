@@ -18,4 +18,9 @@ if (env('SYNC_SCHEDULE_ENABLED', false)) {
     Schedule::command('orders:sync --all')
         ->hourly()
         ->withoutOverlapping();
+
+    // 每天刷新在途运单轨迹（回写 shipments）
+    Schedule::command('shipments:track')
+        ->dailyAt('08:00')
+        ->withoutOverlapping();
 }

@@ -45,6 +45,12 @@ class ReportController extends Controller
         $totalCost = array_sum($costBreakdown);
         $margin = $totalRevenue > 0 ? round($totalProfit / $totalRevenue * 100, 2) : 0;
 
+        // 广告费汇总：广告费以人民币计，直接累加
+        $totalAd = round($valid->sum(fn (Order $o) => (float) $o->ad_cost), 2);
+        $adShare = $totalRevenue > 0 ? round($totalAd / $totalRevenue * 100, 2) : 0;
+        // ROAS = 营收 / 广告费（广告费为零时返回 null，页面显示 —）
+        $roas = $totalAd > 0 ? round($totalRevenue / $totalAd, 2) : null;
+
         // 按平台
         $byPlatform = [];
         foreach (Platform::orderBy('id')->get() as $platform) {
@@ -135,6 +141,7 @@ class ReportController extends Controller
 
         return view('reports.profit', compact(
             'from', 'to', 'totalRevenue', 'totalCost', 'totalProfit', 'margin',
+            'totalAd', 'adShare', 'roas',
             'costBreakdown', 'byPlatform', 'byShop', 'byDay', 'lossOrders', 'skuTop'
         ) + ['orderCount' => $valid->count()]);
     }

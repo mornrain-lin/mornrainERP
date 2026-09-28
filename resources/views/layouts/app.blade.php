@@ -55,6 +55,9 @@
                     <a class="nav-item {{ request()->routeIs('sync.*') ? 'active' : '' }}" href="{{ route('sync.index') }}">
                         <span class="ico">⇄</span> 平台对接
                     </a>
+                    <a class="nav-item {{ request()->routeIs('purchases.*') ? 'active' : '' }}" href="{{ route('purchases.index') }}">
+                        <span class="ico">📦</span> 采购管理
+                    </a>
                     <a class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
                         <span class="ico">☺</span> 账号管理
                     </a>

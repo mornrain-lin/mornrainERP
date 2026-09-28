@@ -103,7 +103,13 @@
     <div class="card">
         <div class="card-head">
             <h2 class="card-title">采购建议</h2>
-            <span class="muted" style="font-size:12px">建议补货量 = 近 30 天销量 + 安全库存 − 当前库存</span>
+            <div style="display:flex;gap:8px;align-items:center">
+                <span class="muted" style="font-size:12px">建议补货量 = 近 30 天销量 + 安全库存 − 当前库存</span>
+                <form method="post" action="{{ route('purchases.from-suggestions') }}">
+                    @csrf
+                    <button class="btn btn-sm" type="submit" title="根据下方建议一键生成草稿采购单">生成采购单</button>
+                </form>
+            </div>
         </div>
         <div class="card-body tight">
             <div class="table-wrap">

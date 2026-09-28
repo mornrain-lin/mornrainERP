@@ -1,6 +1,6 @@
 # mornrainERP
 
-> 轻量级跨境电商 ERP · 订单 / 库存 / 利润 / 平台对接（v0.4）
+> 轻量级跨境电商 ERP · 订单 / 库存 / 利润 / 平台对接（v0.5）
 > 对标 [moringrain.com](https://www.moringrain.com/) 的产品定位：**让每一单利润算得清**
 
 面向跨境电商小团队的轻量级 ERP。核心解决四件事：**多平台订单归集 → 库存与发货闭环 → 自动核算利润 → 团队协同**。
@@ -32,7 +32,7 @@
 | 自动归集成本 | `orders` 表拆分平台币 / 人民币两类字段，佣金·手续费·物流·广告·退款逐项落表 |
 | 毛利误差 ≤2% | `ProfitCalculator` 统一口径计算，全部折算为 CNY，杜绝手工心算 |
 | 多店铺 | `shops` 表支持「一个平台多店铺多站点 + 独立汇率」 |
-| 400 单/月额度 | MVP 未做计费，但订单量统计已就绪，可直接加额度校验 |
+| 400 单/月额度 | `QuotaService` 按自然月统计新建订单，免费版超 400 单阻断新建并引导升级 |
 
 ---
 
@@ -57,14 +57,17 @@ mornrainerp/
 ├── app/
 │   ├── Enums/
 │   │   ├── OrderStatus.php          # 订单状态机（含流转规则、UI 配色）
-│   │   └── ShipmentStatus.php       # 物流状态
+│   │   ├── ShipmentStatus.php       # 物流状态
+│   │   └── POStatus.php             # 采购单状态机（草稿/已下单/已收货/已取消）
 │   ├── Http/Controllers/
 │   │   ├── AuthController.php       # 登录 / 登出 / 修改密码
-│   │   ├── DashboardController.php  # 经营概览（含环比、库存预警）
+│   │   ├── DashboardController.php  # 经营概览（含环比、库存预警、额度与广告费）
 │   │   ├── InventoryController.php  # 库存总览 / 采购建议 / 入库出库盘点
 │   │   ├── OrderController.php      # 订单 CRUD / 状态流转 / 发货（扣库存）/ 导入导出
 │   │   ├── ProductController.php    # 商品 SKU 管理
-│   │   ├── ReportController.php     # 利润报表 + 利润明细导出
+│   │   ├── PurchaseController.php   # 采购单 CRUD / 收货入库 / 按建议生成
+│   │   ├── ReportController.php     # 利润报表 + 利润明细导出 + 广告费归集
+│   │   ├── ShipmentController.php   # 物流轨迹刷新（单条 / 全部在途）
 │   │   ├── ShopController.php       # 店铺管理
 │   │   ├── SyncController.php       # 平台对接（凭证配置 / 手动拉单）
 │   │   └── UserController.php       # 账号管理（仅管理员）
@@ -72,26 +75,37 @@ mornrainerp/
 │   │   ├── Authenticate.php         # 未登录跳登录页并记住目标地址
 │   │   └── EnsureAdmin.php          # 管理员闸门
 │   ├── Models/                      # User / Platform / Shop / Product / Order /
-│   │                                # OrderItem / Shipment / SyncLog / StockMovement
+│   │                                # OrderItem / Shipment / SyncLog / StockMovement /
+│   │                                # Supplier / PurchaseOrder / PurchaseOrderItem
 │   ├── Services/
 │   │   ├── Inventory/StockService.php          # 库存唯一出入口 + 采购建议
-│   │   └── PlatformSync/                       # 平台拉单适配层
-│   │       ├── PlatformConnector.php           # 连接器契约
-│   │       ├── GenericRestConnector.php        # 通用 REST OpenAPI 实现
-│   │       ├── PlatformConnectorFactory.php    # 按平台注册连接器
-│   │       ├── NormalizedOrder.php             # 平台订单标准形态
-│   │       └── OrderSyncService.php            # 拉单 → 去重落库 → 写同步日志
+│   │   ├── Logistics/                            # 物流轨迹回写
+│   │   │   ├── CarrierTracker.php               # 轨迹接口
+│   │   │   ├── MockCarrierTracker.php           # 演示轨迹生成器
+│   │   │   └── TrackingService.php              # 拉取 → 回写 events → 推进签收
+│   │   ├── PlatformSync/                       # 平台拉单适配层
+│   │   │   ├── PlatformConnector.php           # 连接器契约
+│   │   │   ├── GenericRestConnector.php        # 通用 REST OpenAPI 实现
+│   │   │   ├── PlatformConnectorFactory.php    # 按平台注册连接器
+│   │   │   ├── NormalizedOrder.php             # 平台订单标准形态
+│   │   │   └── OrderSyncService.php            # 拉单 → 去重落库 → 写同步日志
+│   │   └── Quota/                              # 免费版额度控制
+│   │       ├── QuotaService.php                # 月度新建订单额度
+│   │       └── QuotaExceededException.php      # 超额异常
 │   └── Support/ProfitCalculator.php # 利润核算核心
-├── app/Console/Commands/SyncOrders.php  # php artisan orders:sync（可挂定时）
+├── app/Console/Commands/SyncOrders.php     # php artisan orders:sync（可挂定时）
+├── app/Console/Commands/TrackShipments.php # php artisan shipments:track（可挂定时）
+├── config/plan.php                          # 套餐与额度（ERP_PLAN / ERP_FREE_QUOTA）
 ├── database/
-│   ├── migrations/                  # 9 张表（含 users / sync_logs / stock_movements）
-│   └── seeders/                     # AdminUser + Platform + DemoData + Inventory
-├── public/css/app.css               # 本地后台样式（自研）
+│   ├── migrations/                  # 13 张表（含 suppliers / purchase_orders /
+│   │                                #   purchase_order_items / shipments 轨迹字段）
+│   └── seeders/                     # AdminUser + Platform + Supplier + DemoData + Inventory
+├── public/css/app.css               # 本地后台样式（自研，含额度条与物流时间线）
 ├── resources/views/                 # layouts / dashboard / orders / inventory / sync /
-│                                    # shops / products / reports / users / auth
+│                                    # shops / products / reports / users / auth / purchases
 └── routes/
     ├── web.php                      # 后台路由（auth / admin 中间件）
-    └── console.php                  # 定时拉单开关
+    └── console.php                  # 定时拉单 + 每日 08:00 物流轨迹刷新开关
 ```
 
 ---
@@ -113,7 +127,14 @@ orders (订单) ──┬── n order_items (明细) ── n→1 products (SK
 
 users (账号 admin/staff) ── 操作人，写入库存流水
 sync_logs (同步日志) ── n→1 shops
+
+suppliers (供应商) ── 1 n ── purchase_orders (采购单) ── n purchase_order_items
+purchase_orders ── n→1 shops(created_by: users)
+purchase_order_items ── n→1 products   # 收货时按明细回写库存
 ```
+
+> 采购入库：收货时 `StockService::adjust(product, qty, 'po_in')` 写入 `stock_movements`，
+> `type='po_in'` 标记为「采购入库」，与销售出库（`out`）共用同一条流水。
 
 ### 订单表的金额口径（关键设计）
 
@@ -206,6 +227,34 @@ sync_logs (同步日志) ── n→1 shops
 - 店铺管理 `/shops`：平台归属、站点、币种、汇率
 - 商品 SKU `/products`：采购成本、重量、品类、**当前库存与安全库存**（成本是利润的输入项）
 
+### 9. 免费版额度控制 `/`（概览）
+- 套餐与额度由 `config/plan.php` 驱动（`ERP_PLAN` 默认 `free`，`ERP_FREE_QUOTA` 默认 `400`，设 `0` 为不限量）
+- `QuotaService` 按 `orders.created_at` 自然月统计**新建**订单数，`remaining()` 不限量返 `null`
+- 拦截点：手工录单（`OrderController::store`）、CSV 导入（`OrderController::import` 按去重后的净新增数校验）、平台拉单（`OrderSyncService` 在额度耗尽时跳过新建并计入 `skipped`/`blocked`）
+- 超额时统一抛 `QuotaExceededException`，页面提示「本月订单额度已用完（已用/额度）。升级付费版可解除限制，或等待下月 1 日自动重置。」
+- 概览页「本月订单额度」进度条：已用/限制、剩余数、`pct≥100` 标红
+
+### 10. 采购单与供应商 `/purchases`（管理员）
+- **供应商**：`suppliers` 表（名称/联系人/电话/邮箱/地址/备注/是否启用），`SupplierSeeder` 空库写入 2 个演示供应商
+- **采购单**：`purchase_orders` + 明细 `purchase_order_items`，状态机 `POStatus`（草稿→已下单→已收货→已取消），`recalcTotal()` 自动汇总行小计
+- **收货入库**：`receive()` 在事务内对每条明细调用 `StockService::adjust(..., StockMovement::TYPE_PO_IN, ...)`，库存回写、流水类型标记为「采购入库」，PO 置已收货并写 `received_at`
+- **一键补货**：库存页「采购建议」可一键 `POST /purchases/from-suggestions` 生成草稿采购单（自动汇总所有低于安全库存的 SKU 预估采购额）
+- 列表/详情均按 `canReceive()` 控制是否展示收货入口
+
+### 11. 广告费自动归集 `/reports/profit`
+- 利润公式已含 `广告分摊` 口径；本次在利润报表与概览补充**广告费聚合视图**
+- 报表页新增三块 KPI：**广告费（CNY）**、`广告费占比 = 广告费 ÷ 营收`、`ROAS = 营收 ÷ 广告费`（广告费为 0 时 ROAS 显示 —）
+- 概览页新增「本月广告费」与占比，便于运营监控投放效率
+- 归集数据来自 `orders.ad_cost`（人民币口径，落单时录入），无需手工分摊
+
+### 12. 物流轨迹回写 `/orders/{id}`
+- 抽象 `CarrierTracker` 接口 + `MockCarrierTracker`（演示用，按 `shipped_at` 推算跨境 5 节点：揽收 → 运输中 → 到达目的国 → 派送中 → 已签收）
+- `TrackingService` 拉取轨迹后回写 `shipments.events` / `last_tracked_at`；末节点含「签收」则自动把 `status` 推进 `delivered` 并写 `delivered_at`
+- 页面入口：订单详情「批量刷新在途物流」按钮 + 每条运单「刷新」按钮，运单下方渲染 `<ul class="timeline">` 轨迹时间线
+- 定时：`php artisan shipments:track`（刷新全部在途），`SYNC_SCHEDULE_ENABLED=true` 时由 `schedule:run` 每日 08:00 执行
+
+> 接入真实物流商只需实现 `CarrierTracker` 接口并在 `AppServiceProvider` 重新 `bind` 即可，其余逻辑零改动。
+
 ---
 
 ## 七、本地运行
@@ -288,14 +337,14 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 
 | 优先级 | 模块 | 状态 | 说明 |
 |---|---|---|---|
-| P0 | 平台 OpenAPI 对接 | ✅ 框架已就绪 | 通用 REST 连接器 + 手动 / 定时拉单；接具体平台只需新增连接器实现 |
+| P0 | 平台 OpenAPI 对接 | ✅ 已交付 | 通用 REST 连接器 + 手动 / 定时拉单；接具体平台只需新增连接器实现 |
 | P0 | 登录与权限 | ✅ 已交付 | 全站登录校验 + 管理员 / 运营两级角色 |
 | P1 | 库存管理 | ✅ 已交付 | SKU 库存、安全库存、流水、发货扣减、退款回补 |
-| P1 | 采购管理 | 🟡 部分 | 已给补货建议与预估金额，采购单 / 供应商待补 |
-| P1 | 免费版额度控制 | ⬜ 待做 | 400 单/月限制 + 升级引导（订单量统计已就绪） |
+| P1 | 采购管理 | ✅ 已交付 | 供应商 + 采购单状态机 + 收货入库回写库存 + 一键补货 |
+| P1 | 免费版额度控制 | ✅ 已交付 | 400 单/月限制 + 升级引导，覆盖录单/导入/拉单三入口 |
 | P2 | 看板增强 | 🟡 部分 | 已做环比与 14 日趋势；同比、SKU 趋势、汇率影响待补 |
-| P2 | 广告费自动归集 | ⬜ 待做 | 对接平台广告 API，替代手工分摊 |
-| P2 | 物流轨迹回写 | ⬜ 待做 | 运单号轨迹同步与签收自动完成订单 |
+| P2 | 广告费自动归集 | ✅ 已交付 | 报表与概览补充广告费 / 占比 / ROAS 聚合视图 |
+| P2 | 物流轨迹回写 | ✅ 已交付 | 运单轨迹同步 + 签收自动完成订单 + 每日定时刷新 |
 | P2 | 操作审计 | ⬜ 待做 | 关键操作留痕（目前库存流水已记录操作人） |
 
 ---
@@ -311,6 +360,15 @@ Nginx 站点根指向 `public/`，并按 Laravel 标准配置：
 - 发货：订单状态流转到 `shipped` 并写入 `shipped_at`
 - 平台对接：未配置凭证 → failed（缺 api_base/app_key）；配置无效地址 → failed（cURL 7），均写入 `sync_logs`
 - 利润导出：CSV 带 BOM，表头与数值正确（示例 `营收 220.58 / 成本 59.7+15.4 / 毛利 145.48 / 65.95%`）
+
+**v0.5（本次）**
+
+- 额度：`ERP_FREE_QUOTA=1` 时 `remaining()=0`，`assertCanCreate()` 抛「本月订单额度已用完（189/1）…」；设 `0` 时 `remaining()=null`、`canCreate(999)=true`
+- 采购：建 PO（MR-0001×10@5=¥50）→ 收货入库 → 库存 13→23、`po_in` 流水 1 条、PO `status=received`、明细 `received_qty=10`
+- 一键补货：`POST /purchases/from-suggestions` 返回 302，`PurchaseOrder::count()` 1→2
+- 广告归集：报表页显示「广告费占比」「ROAS」；概览显示月度广告费与占比
+- 物流：单条 `track` 302、`events` 写入 5 节点、`status` 推进 `delivered`、`last_tracked_at` 写入；`artisan shipments:track` 刷新 29 条，delivered 75/total 76
+- 全量 `php -l` LINT-OK；4 个新迁移 `migrate` 成功；`SupplierSeeder` 写入 2 条
 
 **v0.1（基线）**
 

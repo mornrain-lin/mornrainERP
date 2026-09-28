@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\Platform;
 use App\Services\Inventory\StockService;
+use App\Services\Quota\QuotaService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -29,7 +30,8 @@ class DashboardController extends Controller
         $prevMonthStart = $now->copy()->subMonthNoOverflow()->startOfMonth();
         $prevMonthEnd = $now->copy()->subMonthNoOverflow()->endOfMonth();
 
-        $monthStat = $this->summarize($this->ordersBetween($monthStart, $now));
+        $monthOrders = $this->ordersBetween($monthStart, $now);
+        $monthStat = $this->summarize($monthOrders);
         $prevMonthStat = $this->summarize($this->ordersBetween($prevMonthStart, $prevMonthEnd));
 
         $kpi = [
@@ -44,6 +46,13 @@ class DashboardController extends Controller
                 : 0.0,
             'pending_ship' => Order::where('status', OrderStatus::Paid)->count(),
             'refunding' => Order::where('status', OrderStatus::Refunding)->count(),
+            // 本月广告费（CNY，已直接以人民币计）与占比
+            'month_ad' => round($monthOrders->filter(fn (Order $o) => $o->status->countsAsRevenue())
+                ->sum(fn (Order $o) => (float) $o->ad_cost), 2),
+            'month_ad_share' => $monthStat['revenue'] > 0
+                ? round($monthOrders->filter(fn (Order $o) => $o->status->countsAsRevenue())
+                    ->sum(fn (Order $o) => (float) $o->ad_cost) / $monthStat['revenue'] * 100, 1)
+                : 0.0,
             // 环比：今日 vs 昨日、本月 vs 上月同期
             'dod' => [
                 'orders' => $this->growth($todayStat['orders'], $yesterdayStat['orders']),
@@ -71,7 +80,6 @@ class DashboardController extends Controller
         }
 
         // ---- 平台分布 ----
-        $monthOrders = $this->ordersBetween($monthStart, $now);
         $platformStats = [];
         foreach (Platform::orderBy('id')->get() as $platform) {
             $stat = $this->summarize($monthOrders->where('platform_id', $platform->id));
@@ -89,6 +97,18 @@ class DashboardController extends Controller
         // ---- 库存预警 ----
         $lowStock = $stock->lowStockProducts();
 
+        // ---- 套餐额度 ----
+        $quota = app(QuotaService::class);
+        $quotaInfo = [
+            'plan' => $quota->planName(),
+            'limit' => $quota->monthlyQuota(),
+            'used' => $quota->usedThisMonth(),
+            'remaining' => $quota->remaining(),
+            'pct' => $quota->isLimited()
+                ? round($quota->usedThisMonth() / $quota->monthlyQuota() * 100)
+                : 0,
+        ];
+
         // ---- 待办：最新待发货订单 ----
         $pendingOrders = Order::with(['platform', 'shop'])
             ->withAggregates()
@@ -105,7 +125,7 @@ class DashboardController extends Controller
             ->get();
 
         return view('dashboard', compact(
-            'kpi', 'trend', 'platformStats', 'platformMax', 'pendingOrders', 'latestOrders', 'lowStock'
+            'kpi', 'trend', 'platformStats', 'platformMax', 'pendingOrders', 'latestOrders', 'lowStock', 'quotaInfo'
         ));
     }
 

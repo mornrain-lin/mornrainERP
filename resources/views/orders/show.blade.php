@@ -67,15 +67,21 @@
             <div class="card">
                 <div class="card-head">
                     <h2 class="card-title">物流 / 发货</h2>
-                    @if (in_array($order->status->value, ['paid', 'pending']))
-                        <span class="muted" style="font-size:12px">可发货</span>
-                    @endif
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <form method="post" action="{{ route('shipments.track-all') }}">
+                            @csrf
+                            <button class="btn btn-sm" type="submit" title="刷新所有在途运单轨迹">⇩ 批量刷新在途物流</button>
+                        </form>
+                        @if (in_array($order->status->value, ['paid', 'pending']))
+                            <span class="muted" style="font-size:12px">可发货</span>
+                        @endif
+                    </div>
                 </div>
                 <div class="card-body">
                     @if ($order->shipments->isNotEmpty())
                         <div class="table-wrap" style="margin-bottom:14px">
                             <table class="tbl">
-                                <thead><tr><th>物流商</th><th>运单号</th><th>状态</th><th class="num">运费</th><th>发货时间</th></tr></thead>
+                                <thead><tr><th>物流商</th><th>运单号</th><th>状态</th><th class="num">运费</th><th>发货时间</th><th></th></tr></thead>
                                 <tbody>
                                 @foreach ($order->shipments as $sh)
                                     <tr>
@@ -84,7 +90,28 @@
                                         <td><span class="badge badge-{{ $sh->status->tone() }}">{{ $sh->status->label() }}</span></td>
                                         <td class="num">¥{{ number_format($sh->cost, 2) }}</td>
                                         <td class="muted nowrap">{{ $sh->shipped_at?->format('m-d H:i') ?? '—' }}</td>
+                                        <td class="nowrap">
+                                            <form method="post" action="{{ route('shipments.track', $sh) }}">
+                                                @csrf
+                                                <button class="btn btn-sm" type="submit">刷新</button>
+                                            </form>
+                                        </td>
                                     </tr>
+                                    @if ($sh->timeline())
+                                        <tr>
+                                            <td colspan="6" style="background:var(--bg)">
+                                                <ul class="timeline">
+                                                    @foreach ($sh->timeline() as $ev)
+                                                        <li>
+                                                            <span class="t-time">{{ $ev['time'] }}</span>
+                                                            <span class="t-status">{{ $ev['status'] }}</span>
+                                                            <span class="t-desc">{{ $ev['desc'] }}</span>
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endforeach
                                 </tbody>
                             </table>

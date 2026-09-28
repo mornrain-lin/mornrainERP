@@ -10,6 +10,7 @@ class StockMovement extends Model
     public const TYPE_IN = 'in';
     public const TYPE_OUT = 'out';
     public const TYPE_ADJUST = 'adjust';
+    public const TYPE_PO_IN = 'po_in'; // 采购入库
 
     protected $fillable = [
         'product_id', 'type', 'quantity', 'balance_after', 'order_id', 'user_id', 'remark',
@@ -40,6 +41,7 @@ class StockMovement extends Model
         return match ($this->type) {
             self::TYPE_IN => '入库',
             self::TYPE_OUT => '出库',
+            self::TYPE_PO_IN => '采购入库',
             default => '盘点',
         };
     }

@@ -62,7 +62,35 @@
             <div class="kpi-value">{{ number_format($kpi['refunding']) }}</div>
             <div class="kpi-foot">关注资金与库存回滚</div>
         </div>
+        @if ($quotaInfo['limit'] > 0)
+            <div class="kpi kpi-accent amber">
+                <div class="kpi-label">本月订单额度（{{ $quotaInfo['plan'] === 'free' ? '免费版' : $quotaInfo['plan'] }}）</div>
+                <div class="kpi-value">{{ number_format($quotaInfo['used']) }}<span style="font-size:16px"> / {{ number_format($quotaInfo['limit']) }}</span></div>
+                <div class="kpi-foot">
+                    剩余 {{ $quotaInfo['remaining'] === null ? '∞' : number_format($quotaInfo['remaining']) }} 单
+                    @if ($kpi['month_ad'] > 0)· 广告费 ¥{{ number_format($kpi['month_ad'], 2) }}（{{ $kpi['month_ad_share'] }}%）@endif
+                </div>
+            </div>
+        @else
+            <div class="kpi kpi-accent amber">
+                <div class="kpi-label">本月广告费</div>
+                <div class="kpi-value">¥{{ number_format($kpi['month_ad'], 2) }}</div>
+                <div class="kpi-foot">占营收 {{ $kpi['month_ad_share'] }}%</div>
+            </div>
+        @endif
     </div>
+
+    @if ($quotaInfo['limit'] > 0)
+        <div class="quota-bar-wrap">
+            <div class="quota-bar-head">
+                <span>本月订单额度使用</span>
+                <span class="{{ $quotaInfo['pct'] >= 100 ? 'down' : 'muted' }}">{{ $quotaInfo['used'] }} / {{ $quotaInfo['limit'] }}（{{ $quotaInfo['pct'] }}%）</span>
+            </div>
+            <div class="quota-bar">
+                <div class="quota-fill {{ $quotaInfo['pct'] >= 100 ? 'full' : '' }}" style="width: {{ min(100, $quotaInfo['pct']) }}%"></div>
+            </div>
+        </div>
+    @endif
 
     @if ($lowStock->isNotEmpty())
         <div class="alert alert-err">

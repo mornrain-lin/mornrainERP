@@ -13,6 +13,7 @@ class Shipment extends Model
 
     protected $fillable = [
         'order_id', 'carrier', 'tracking_no', 'status', 'cost', 'shipped_at', 'delivered_at',
+        'events', 'last_tracked_at',
     ];
 
     protected $casts = [
@@ -20,11 +21,19 @@ class Shipment extends Model
         'cost' => 'float',
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'last_tracked_at' => 'datetime',
+        'events' => 'array',
     ];
 
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /** 物流轨迹时间线（倒序展示用） */
+    public function timeline(): array
+    {
+        return array_reverse((array) ($this->events ?? []));
     }
 
     /** 常见跨境物流商，供下拉框 */

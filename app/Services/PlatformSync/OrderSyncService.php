@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Models\SyncLog;
+use App\Services\Quota\QuotaService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -21,8 +22,10 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderSyncService
 {
-    public function __construct(private readonly PlatformConnectorFactory $factory)
-    {
+    public function __construct(
+        private readonly PlatformConnectorFactory $factory,
+        private readonly QuotaService $quota,
+    ) {
     }
 
     /**
@@ -41,15 +44,41 @@ class OrderSyncService
             $orders = $this->factory->make($shop)->fetchOrders($shop, $from, $to);
             $stats['fetched'] = count($orders);
 
+            $remaining = $this->quota->remaining(); // null = 不限量
+            $blocked = 0;
+
             foreach ($orders as $payload) {
+                if (! $payload->isValid()) {
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                $isNew = ! Order::where('shop_id', $shop->id)
+                    ->where('order_no', $payload->orderNo)
+                    ->exists();
+
+                // 免费版额度：超过当月余额的新订单跳过（已有订单仍正常更新）
+                if ($isNew && $remaining !== null && $remaining <= 0) {
+                    $stats['skipped']++;
+                    $blocked++;
+                    continue;
+                }
+
                 $result = $this->upsertOrder($shop, $payload);
                 $stats[$result] = ($stats[$result] ?? 0) + 1;
+                if ($isNew && $remaining !== null) {
+                    $remaining--;
+                }
             }
 
             $message = sprintf(
                 '拉取 %d 单，新建 %d，更新 %d，跳过 %d',
                 $stats['fetched'], $stats['created'], $stats['updated'], $stats['skipped']
             );
+
+            if ($blocked > 0) {
+                $message .= "；{$blocked} 单因月度额度限制未新建";
+            }
 
             $shop->forceFill([
                 'last_synced_at' => now(),

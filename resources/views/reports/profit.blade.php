@@ -32,6 +32,9 @@
         <div class="kpi kpi-accent amber"><div class="kpi-label">总成本（CNY）</div><div class="kpi-value">¥{{ number_format($totalCost, 2) }}</div></div>
         <div class="kpi kpi-accent green"><div class="kpi-label">毛利（CNY）</div><div class="kpi-value">¥{{ number_format($totalProfit, 2) }}</div></div>
         <div class="kpi kpi-accent green"><div class="kpi-label">毛利率</div><div class="kpi-value">{{ $margin }}<span style="font-size:16px">%</span></div></div>
+        <div class="kpi kpi-accent amber"><div class="kpi-label">广告费（CNY）</div><div class="kpi-value">¥{{ number_format($totalAd, 2) }}</div><div class="kpi-foot">占营收 {{ $adShare }}%</div></div>
+        <div class="kpi kpi-accent"><div class="kpi-label">广告费占比</div><div class="kpi-value">{{ $adShare }}<span style="font-size:16px">%</span></div><div class="kpi-foot">广告 / 营收</div></div>
+        <div class="kpi kpi-accent green"><div class="kpi-label">ROAS</div><div class="kpi-value">{{ $roas === null ? '—' : $roas . '×' }}</div><div class="kpi-foot">营收 / 广告费</div></div>
     </div>
 
     <div class="grid grid-2">

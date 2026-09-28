@@ -10,6 +10,8 @@ use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\Shop;
 use App\Services\Inventory\StockService;
+use App\Services\Quota\QuotaExceededException;
+use App\Services\Quota\QuotaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -70,6 +72,13 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
+        // 免费版月度额度校验
+        try {
+            app(QuotaService::class)->assertCanCreate();
+        } catch (QuotaExceededException $e) {
+            return back()->withInput()->with('err', $e->getMessage());
+        }
+
         $data = $this->validateOrder($request);
 
         $order = DB::transaction(function () use ($data) {
@@ -356,6 +365,25 @@ class OrderController extends Controller
         $created = 0;
         $skipped = 0;
         $errors = [];
+
+        // 免费版月度额度：统计本次将新建的订单数并校验
+        $newCount = 0;
+        $seen = [];
+        foreach ($rows as $r) {
+            $no = trim((string) ($r['order_no'] ?? ''));
+            if ($no === '' || isset($seen[$no])) {
+                continue;
+            }
+            $seen[$no] = true;
+            if (! Order::where('order_no', $no)->exists()) {
+                $newCount++;
+            }
+        }
+        try {
+            app(QuotaService::class)->assertCanCreate($newCount);
+        } catch (QuotaExceededException $e) {
+            return back()->with('err', $e->getMessage());
+        }
 
         DB::transaction(function () use ($rows, &$created, &$skipped, &$errors) {
             $grouped = [];
