@@ -1,4 +1,4 @@
-![mornrainERP](assets/preview.png)
+![mornrainERP](assets/login.png)
 
 # mornrainERP
 
@@ -12,15 +12,9 @@
 
 ## 界面预览
 
-| 经营概览 | 订单管理 |
-|---|---|
-| ![经营概览](docs/screenshots/01-dashboard.png) | ![订单管理](docs/screenshots/02-orders.png) |
-
-| 订单详情（利润拆解） | 利润报表 |
-|---|---|
-| ![订单详情](docs/screenshots/03-detail.png) | ![利润报表](docs/screenshots/04-report.png) |
-
----
+| 登录页 | 仪表盘 | 订单管理 |
+| --- | --- | --- |
+| ![登录页](assets/login.png) | ![仪表盘](assets/dashboard.png) | ![订单管理](assets/business.png) |
 
 ## 一、为什么是这套设计
 
