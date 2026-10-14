@@ -1,3 +1,5 @@
+![mornrainERP](assets/preview.png)
+
 # mornrainERP
 
 > 轻量级跨境电商 ERP · 订单 / 库存 / 利润 / 采购 / 审计（v0.6）
